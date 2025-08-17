@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>RuaPhone</title>
+    
+    <!-- External Dependencies -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+</head>
+<body>
+    <div class="phone-frame" x-data="phoneApp()" x-init="init()">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div x-text="currentTime"></div>
+            <div class="battery">
+                <span x-text="batteryLevel + '%'"></span>
+                <div class="battery-icon">
+                    <div class="battery-level" :style="`width: ${batteryLevel}%`"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen Content -->
+        <div class="screen">
+            <div class="page-container">
+                <!-- Home Screen -->
+                <div class="page home-screen" :class="{ active: $store.app.currentPage === 'home' }">
+                    <div class="clock">
+                        <div class="clock-time" x-text="currentTime"></div>
+                        <div class="clock-date" x-text="currentDate"></div>
+                    </div>
+                    
+                    <div class="app-grid">
+                        <div class="app-icon" @click="navigateTo('chat-list')">
+                            <div class="app-icon-image">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <div class="app-icon-label">聊天</div>
+                        </div>
+                        
+                        <div class="app-icon" @click="navigateTo('world-book')">
+                            <div class="app-icon-image">
+                                <i class="fas fa-book"></i>
+                            </div>
+                            <div class="app-icon-label">世界书</div>
+                        </div>
+                        
+                        <div class="app-icon" @click="navigateTo('presets')">
+                            <div class="app-icon-image">
+                                <i class="fas fa-cog"></i>
+                            </div>
+                            <div class="app-icon-label">预设</div>
+                        </div>
+                        
+                        <div class="app-icon" @click="navigateTo('api-settings')">
+                            <div class="app-icon-image">
+                                <i class="fas fa-key"></i>
+                            </div>
+                            <div class="app-icon-label">API设置</div>
+                        </div>
+                        
+                        <div class="app-icon" @click="navigateTo('moments')">
+                            <div class="app-icon-image">
+                                <i class="fas fa-heart"></i>
+                            </div>
+                            <div class="app-icon-label">朋友圈</div>
+                        </div>
+                        
+                        <div class="app-icon" @click="navigateTo('settings')">
+                            <div class="app-icon-image">
+                                <i class="fas fa-palette"></i>
+                            </div>
+                            <div class="app-icon-label">主题</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat List Page -->
+                <div class="page" :class="{ active: $store.app.currentPage === 'chat-list' }">
+                    <div class="header">
+                        <button class="header-button" @click="navigateTo('home')">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="header-title">聊天</div>
+                        <button class="header-button" @click="createNewChat()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="content">
+                        <div class="list-container" x-show="$store.chat.chats.length > 0">
+                            <template x-for="chat in $store.chat.chats" :key="chat.id">
+                                <div class="list-item" @click="openChat(chat.id)">
+                                    <img :src="chat.avatar || 'https://via.placeholder.com/40'" class="list-item-avatar">
+                                    <div class="list-item-content">
+                                        <div class="list-item-title" x-text="chat.name"></div>
+                                        <div class="list-item-subtitle" x-text="chat.lastMessage || '暂无消息'"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <div x-show="$store.chat.chats.length === 0" class="text-center p-4">
+                            <p class="text-secondary">暂无聊天记录</p>
+                            <button class="button mt-4" @click="createNewChat()">创建新聊天</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Interface Page -->
+                <div class="page" :class="{ active: $store.app.currentPage === 'chat' }" x-data="chatInterface()">
+                    <div class="header">
+                        <button class="header-button" @click="$store.app.navigateTo('chat-list')">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="header-title" x-text="currentChat?.name || '聊天'"></div>
+                        <div style="width: 32px;"></div>
+                    </div>
+                    
+                    <!-- Messages Container -->
+                    <div class="chat-messages" x-ref="messagesContainer">
+                        <template x-for="message in messages" :key="message.id">
+                            <div class="message" :class="{ 'user': message.role === 'user', 'assistant': message.role === 'assistant' }">
+                                <div class="message-content">
+                                    <div class="message-text" x-text="message.content"></div>
+                                    <div class="message-time" x-text="formatTime(message.timestamp)"></div>
+                                </div>
+                            </div>
+                        </template>
+                        
+                        <!-- Loading indicator -->
+                        <div x-show="$store.app.isLoading" class="message assistant">
+                            <div class="message-content">
+                                <div class="message-text">AI正在思考中...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Input Area -->
+                    <div class="chat-input">
+                        <div class="input-container">
+                            <input 
+                                type="text" 
+                                x-model="newMessage" 
+                                @keydown.enter="sendMessage()"
+                                placeholder="输入消息..."
+                                class="message-input"
+                            >
+                            <button @click="sendMessage()" class="send-button" :disabled="!newMessage.trim()">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Settings Page -->
+                <div class="page" :class="{ active: $store.app.currentPage === 'api-settings' }">
+                    <div class="header">
+                        <button class="header-button" @click="navigateTo('home')">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="header-title">API设置</div>
+                        <div style="width: 32px;"></div>
+                    </div>
+                    <div class="content">
+                        <div class="form-group">
+                            <label class="form-label">API地址</label>
+                            <input type="text" class="form-input" x-model="$store.settings.apiConfig.baseURL" placeholder="https://api.openai.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">API密钥</label>
+                            <input type="password" class="form-input" x-model="$store.settings.apiConfig.apiKey" placeholder="sk-...">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">模型</label>
+                            <input type="text" class="form-input" x-model="$store.settings.apiConfig.model" placeholder="gpt-3.5-turbo">
+                        </div>
+                        <button class="button" @click="saveApiConfig()">保存设置</button>
+                    </div>
+                </div>
+
+                <!-- World Book Page -->
+                <div class="page" :class="{ active: $store.app.currentPage === 'world-book' }">
+                    <div class="header">
+                        <button class="header-button" @click="navigateTo('home')">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="header-title">世界书</div>
+                        <button class="header-button" @click="createNewWorldBook()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="content">
+                        <div class="list-container" x-show="$store.worldBook.books.length > 0">
+                            <template x-for="book in $store.worldBook.books" :key="book.id">
+                                <div class="list-item" @click="editWorldBook(book.id)">
+                                    <div class="list-item-content">
+                                        <div class="list-item-title" x-text="book.name"></div>
+                                        <div class="list-item-subtitle" x-text="book.content.substring(0, 50) + '...' || '暂无内容'"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <div x-show="$store.worldBook.books.length === 0" class="text-center p-4">
+                            <p class="text-secondary">暂无世界书</p>
+                            <button class="button mt-4" @click="createNewWorldBook()">创建世界书</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Presets Page -->
+                <div class="page" :class="{ active: $store.app.currentPage === 'presets' }">
+                    <div class="header">
+                        <button class="header-button" @click="navigateTo('home')">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="header-title">预设管理</div>
+                        <button class="header-button" @click="createNewPreset()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div class="content">
+                        <div class="list-container" x-show="$store.presets.presets.length > 0">
+                            <template x-for="preset in $store.presets.presets" :key="preset.id">
+                                <div class="list-item" @click="editPreset(preset.id)">
+                                    <div class="list-item-content">
+                                        <div class="list-item-title" x-text="preset.name"></div>
+                                        <div class="list-item-subtitle" x-text="preset.content.substring(0, 50) + '...' || '暂无内容'"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <div x-show="$store.presets.presets.length === 0" class="text-center p-4">
+                            <p class="text-secondary">暂无预设</p>
+                            <button class="button mt-4" @click="createNewPreset()">创建预设</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
