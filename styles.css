@@ -540,3 +540,69 @@ body {
 .mt-4 { margin-top: 16px; }
 .p-4 { padding: 16px; }
 .hidden { display: none !important; }
+
+/* PWA Fullscreen Mode Styles */
+@media (display-mode: fullscreen), (display-mode: standalone) {
+    body {
+        display: block;
+        justify-content: unset;
+        align-items: unset;
+        background: var(--background-light);
+        padding: 0;
+        margin: 0;
+    }
+
+    .phone-frame {
+        width: 100vw;
+        height: 100vh;
+        max-height: none;
+        background: transparent;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+    }
+
+    .screen {
+        background: #c9949dff;
+    }
+
+    /* Hide software status bar in fullscreen mode since system handles it */
+    .status-bar {
+        display: none;
+    }
+
+    /* Adjust page container to account for removed status bar */
+    .page-container {
+        top: 0;
+    }
+}
+
+/* Alternative detection for standalone mode (iOS) */
+@media all and (display-mode: standalone) {
+    body {
+        display: block;
+        justify-content: unset;
+        align-items: unset;
+        background: var(--background-light);
+        padding: 0;
+        margin: 0;
+    }
+
+    .phone-frame {
+        width: 100vw;
+        height: 100vh;
+        max-height: none;
+        background: transparent;
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+    }
+
+    .status-bar {
+        display: none;
+    }
+
+    .page-container {
+        top: 0;
+    }
+}

@@ -15,6 +15,7 @@ document.addEventListener('alpine:init', () => {
         currentPage: 'home',
         currentChatId: null,
         isLoading: false,
+        isPWA: false,
         
         // Navigation
         navigateTo(page, data = {}) {
@@ -27,6 +28,24 @@ document.addEventListener('alpine:init', () => {
         // Loading state
         setLoading(loading) {
             this.isLoading = loading;
+        },
+        
+        // PWA Detection
+        detectPWA() {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            const isFullscreen = window.matchMedia('(display-mode: fullscreen)').matches;
+            const isIOSStandalone = window.navigator.standalone === true;
+            
+            this.isPWA = isStandalone || isFullscreen || isIOSStandalone;
+            
+            // Add body class for additional CSS targeting if needed
+            if (this.isPWA) {
+                document.body.classList.add('pwa-mode');
+            } else {
+                document.body.classList.remove('pwa-mode');
+            }
+            
+            return this.isPWA;
         }
     });
 
@@ -215,6 +234,9 @@ function phoneApp() {
             this.updateTime();
             this.updateBattery();
             
+            // Detect PWA mode
+            Alpine.store('app').detectPWA();
+            
             // Update time every second
             setInterval(() => {
                 this.updateTime();
@@ -380,4 +402,17 @@ function chatInterface() {
             return messages.some(m => m.role === 'user');
         }
     }
+}
+
+// Register Service Worker for PWA functionality
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then((registration) => {
+                console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+                console.log('SW registration failed: ', registrationError);
+            });
+    });
 }
