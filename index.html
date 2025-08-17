@@ -126,6 +126,10 @@
                     <div class="chat-messages" x-ref="messagesContainer">
                         <template x-for="message in messages" :key="message.id">
                             <div class="message" :class="{ 'user': message.role === 'user', 'assistant': message.role === 'assistant' }">
+                                <div class="avatar">
+                                    <span x-show="message.role === 'user'" class="user-avatar">👤</span>
+                                    <span x-show="message.role === 'assistant'" class="ai-avatar">🤖</span>
+                                </div>
                                 <div class="message-content">
                                     <div class="message-text" x-text="message.content"></div>
                                     <div class="message-time" x-text="formatTime(message.timestamp)"></div>
@@ -135,6 +139,9 @@
                         
                         <!-- Loading indicator -->
                         <div x-show="$store.app.isLoading" class="message assistant">
+                            <div class="avatar">
+                                <span class="ai-avatar">🤖</span>
+                            </div>
                             <div class="message-content">
                                 <div class="message-text">AI正在思考中...</div>
                             </div>
@@ -153,6 +160,9 @@
                             >
                             <button @click="sendMessage()" class="send-button" :disabled="!newMessage.trim()">
                                 <i class="fas fa-paper-plane"></i>
+                            </button>
+                            <button @click="triggerAIResponse()" class="ai-button" :disabled="!hasUserMessages()">
+                                🤖
                             </button>
                         </div>
                     </div>

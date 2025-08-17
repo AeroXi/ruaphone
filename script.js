@@ -56,8 +56,10 @@ document.addEventListener('alpine:init', () => {
             this.currentMessages = await db.messages
                 .where('chatId')
                 .equals(chatId)
-                .orderBy('timestamp')
                 .toArray();
+            
+            // Sort by timestamp
+            this.currentMessages.sort((a, b) => a.timestamp - b.timestamp);
         },
         
         async sendMessage(chatId, content, role = 'user') {
@@ -72,10 +74,7 @@ document.addEventListener('alpine:init', () => {
             await db.messages.add(message);
             await this.loadMessages(chatId);
             
-            // If user message, generate AI response
-            if (role === 'user') {
-                await this.generateAIResponse(chatId, content);
-            }
+            // Note: AI response is now triggered manually, not automatically
         },
         
         async generateAIResponse(chatId, userMessage) {
@@ -355,6 +354,30 @@ function chatInterface() {
                 hour: '2-digit',
                 minute: '2-digit'
             });
+        },
+        
+        async triggerAIResponse() {
+            const chatId = Alpine.store('app').currentChatId;
+            const messages = Alpine.store('chat').currentMessages;
+            
+            // Get the last user message
+            const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+            if (lastUserMessage) {
+                await Alpine.store('chat').generateAIResponse(chatId, lastUserMessage.content);
+                
+                // Scroll to bottom
+                this.$nextTick(() => {
+                    const container = this.$refs.messagesContainer;
+                    if (container) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                });
+            }
+        },
+        
+        hasUserMessages() {
+            const messages = Alpine.store('chat').currentMessages;
+            return messages.some(m => m.role === 'user');
         }
     }
 }

@@ -373,18 +373,21 @@ body {
     padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    background: white;
+    gap: 8px;
+    background: #f6f6f6;
 }
 
 .message {
     display: flex;
-    max-width: 80%;
+    align-items: flex-end;
+    margin-bottom: 8px;
+    gap: 8px;
 }
 
 .message.user {
     align-self: flex-end;
     justify-content: flex-end;
+    flex-direction: row-reverse;
 }
 
 .message.assistant {
@@ -393,22 +396,23 @@ body {
 }
 
 .message-content {
-    background: var(--background-light);
-    padding: 12px 16px;
-    border-radius: 18px;
+    padding: 10px 15px;
+    border-radius: 6px;
     position: relative;
+    max-width: 280px;
+    word-wrap: break-word;
 }
 
 .message.user .message-content {
-    background: var(--primary-color);
-    color: white;
-    border-bottom-right-radius: 6px;
+    background: #95ec69;
+    color: #000;
+    margin-right: 8px;
 }
 
 .message.assistant .message-content {
-    background: var(--background-light);
-    color: var(--text-primary);
-    border-bottom-left-radius: 6px;
+    background: white;
+    color: #000;
+    margin-left: 8px;
 }
 
 .message-text {
@@ -421,6 +425,38 @@ body {
     font-size: 12px;
     opacity: 0.7;
     margin-top: 4px;
+}
+
+/* Avatar styles */
+.avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.user-avatar {
+    background: #ddd;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-avatar {
+    background: #e8e8e8;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .chat-input {
@@ -471,6 +507,31 @@ body {
     background: var(--text-secondary);
     cursor: not-allowed;
     opacity: 0.5;
+}
+
+.ai-button {
+    background: #f0f0f0;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 16px;
+    margin-left: 8px;
+}
+
+.ai-button:hover:not(:disabled) {
+    background: #e0e0e0;
+    transform: scale(1.1);
+}
+
+.ai-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* Utility Classes */

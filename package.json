@@ -1,0 +1,15 @@
+{
+  "name": "ruaphone",
+  "version": "1.0.0",
+  "description": "一个基于 Alpine.js 实现的AI角色扮演-手机模拟器，小手机。",
+  "main": "debug.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.54.2"
+  }
+}
