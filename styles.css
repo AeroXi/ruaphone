@@ -245,6 +245,11 @@ body {
     background: rgba(0, 122, 255, 0.1);
 }
 
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
 /* Content */
 .content {
     padding: 20px;
@@ -277,6 +282,19 @@ body {
 .form-input:focus {
     outline: none;
     border-color: var(--primary-color);
+}
+
+.form-input:disabled {
+    background-color: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.form-help {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
 }
 
 .form-textarea {
@@ -318,6 +336,16 @@ body {
 
 .button-secondary:hover {
     background: #e5e5ea;
+}
+
+.button-group {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.button-group .button {
+    flex: 1;
 }
 
 /* List Styles */

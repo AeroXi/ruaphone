@@ -5,8 +5,56 @@ db.version(1).stores({
     messages: '&id, chatId, timestamp, role',
     apiConfig: '&id',
     worldBooks: '&id, name, created',
-    presets: '&id, name, created'
+    presets: '&id, name, created',
+    globalSettings: '&id'
 });
+
+// Default prompt templates
+const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色。
+
+# 当前情景信息
+- **当前时间是：{currentTime}**。
+- **用户所在城市为:{myAddress}{worldBookContent}**
+
+# 你的角色设定：
+{chat.persona}
+
+# 对话者的角色设定：
+{user.persona}
+
+# 你的任务：
+1. 严格保持你的人设进行对话。
+2. 你的回复必须是一个JSON数组格式的字符串，每个元素是一条消息。
+3. 你必须一次性生成2到5条消息，模拟真人在短时间内连续发送多条信息的情景。
+4. 不要说任何与角色无关的话，不要解释自己是AI。
+5. 当用户发送图片时，请自然地对图片内容做出反应。
+6. 如果用户超过一个小时没有发送消息，则默认结束当前话题，因为用户可能是去办什么事。你可以询问，例如"怎么这么久没回我？刚才有事吗？"
+
+# JSON输出格式示例:
+[
+  "很高兴认识你呀，在干嘛呢？",
+  "对了，今天天气不错，要不要出去走走？"
+]
+
+现在，请根据以上的规则和下面的对话历史，继续进行对话。`;
+
+const DEFAULT_PROMPT_GROUP = `你是一个群聊的组织者和AI驱动器。你的任务是扮演以下所有角色，在群聊中进行互动。
+
+# 群聊规则
+1. **角色扮演**: 你必须同时扮演以下所有角色，并严格遵守他们的人设。
+2. **当前时间**: {currentTime}。
+3. **用户角色**: 用户的名字是"我"，你在群聊中对用户的称呼是"{myNickname}"，在需要时请使用"@{myNickname}"来提及用户。
+4. **输出格式**: 你的回复**必须**是一个JSON数组。每个元素格式为：
+   - 普通消息: {"name": "角色名", "message": "文本内容"}
+5. **对话节奏**: 模拟真实群聊，让成员之间互相交谈，或者一起回应用户的发言。
+6. **数量限制**: 每次生成的总消息数**不得超过10条**。
+7. **禁止出戏**: 绝不能透露你是AI。
+8. **禁止擅自代替"我"说话**: 在回复中你不能代替用户说话。
+
+# 群成员列表及人设
+{membersList}
+
+现在，请根据以上规则和下面的对话历史，继续这场群聊。`;
 
 // Alpine.js Store for global state
 document.addEventListener('alpine:init', () => {
@@ -16,6 +64,31 @@ document.addEventListener('alpine:init', () => {
         currentChatId: null,
         isLoading: false,
         isPWA: false,
+        
+        // Global Settings
+        globalSettings: {
+            activePresetId: null,
+            myAddress: '未知城市',
+            myPersona: '普通用户',
+            maxMemory: 20
+        },
+        
+        // Initialize global settings
+        async loadGlobalSettings() {
+            const settings = await db.globalSettings.get('main');
+            if (settings) {
+                this.globalSettings = { ...this.globalSettings, ...settings };
+            } else {
+                await this.saveGlobalSettings();
+            }
+        },
+        
+        async saveGlobalSettings() {
+            await db.globalSettings.put({ 
+                id: 'main',
+                ...this.globalSettings
+            });
+        },
         
         // Navigation
         navigateTo(page, data = {}) {
@@ -96,8 +169,9 @@ document.addEventListener('alpine:init', () => {
             // Note: AI response is now triggered manually, not automatically
         },
         
-        async generateAIResponse(chatId, userMessage) {
+        async generateAIResponse(chatId) {
             const apiConfig = Alpine.store('settings').apiConfig;
+            const globalSettings = Alpine.store('app').globalSettings;
             
             if (!apiConfig.apiKey || !apiConfig.baseURL) {
                 const errorMessage = {
@@ -115,35 +189,142 @@ document.addEventListener('alpine:init', () => {
             try {
                 Alpine.store('app').setLoading(true);
                 
-                const response = await axios.post(`${apiConfig.baseURL}/v1/chat/completions`, {
-                    model: apiConfig.model,
-                    messages: [
-                        { role: 'user', content: userMessage }
-                    ]
-                }, {
-                    headers: {
-                        'Authorization': `Bearer ${apiConfig.apiKey}`,
-                        'Content-Type': 'application/json'
+                const chat = this.chats.find(c => c.id === chatId);
+                if (!chat) return;
+                
+                // Build conversation history with memory limit
+                const maxMemory = globalSettings.maxMemory || 20;
+                const allMessages = await db.messages.where('chatId').equals(chatId).toArray();
+                const recentMessages = allMessages.slice(-maxMemory);
+                
+                // Construct system prompt
+                const currentTime = new Date().toLocaleString('zh-CN');
+                const worldBookContent = await this.getWorldBookContent();
+                
+                let systemPrompt;
+                if (chat.type === 'group') {
+                    const membersList = (chat.members || []).map(m => `- **${m.name}**: ${m.persona}`).join('\n');
+                    const myNickname = chat.myNickname || '我';
+                    systemPrompt = DEFAULT_PROMPT_GROUP
+                        .replace('{currentTime}', currentTime)
+                        .replace('{myNickname}', myNickname)
+                        .replace('{membersList}', membersList);
+                } else {
+                    systemPrompt = DEFAULT_PROMPT_SINGLE
+                        .replace('{chat.name}', chat.name)
+                        .replace('{currentTime}', currentTime)
+                        .replace('{myAddress}', globalSettings.myAddress || '未知城市')
+                        .replace('{worldBookContent}', worldBookContent)
+                        .replace('{chat.persona}', chat.persona || '友好的AI助手')
+                        .replace('{user.persona}', globalSettings.myPersona || '普通用户');
+                }
+                
+                // Convert messages to API format
+                const messagesPayload = [
+                    { role: 'system', content: systemPrompt },
+                    ...recentMessages.map(msg => ({
+                        role: msg.role,
+                        content: msg.content
+                    }))
+                ];
+                
+                // Make API call
+                const isGemini = apiConfig.apiType === 'gemini';
+                let response;
+                
+                if (isGemini) {
+                    // Gemini API format
+                    const contents = messagesPayload
+                        .filter(msg => msg.role !== 'system')
+                        .map(msg => ({
+                            role: msg.role === 'assistant' ? 'model' : 'user',
+                            parts: [{ text: msg.content }]
+                        }));
+                    
+                    // Add system prompt as first user message for Gemini
+                    contents.unshift({
+                        role: 'user',
+                        parts: [{ text: systemPrompt }]
+                    });
+                    
+                    const apiKey = Alpine.store('settings').getRandomApiKey(apiConfig.apiKey);
+                    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${apiConfig.model}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: contents,
+                            generationConfig: {
+                                temperature: 0.8,
+                                topK: 40,
+                                topP: 0.95,
+                                candidateCount: 1,
+                                stopSequences: []
+                            }
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`Gemini API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
                     }
-                });
-                
-                const aiMessage = {
-                    id: Date.now().toString(),
-                    chatId: chatId,
-                    content: response.data.choices[0].message.content,
-                    role: 'assistant',
-                    timestamp: Date.now()
-                };
-                
-                await db.messages.add(aiMessage);
-                await this.loadMessages(chatId);
+                    
+                    const data = await response.json();
+                    const aiResponseContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (!aiResponseContent) {
+                        throw new Error('Invalid response format from Gemini API');
+                    }
+                    
+                    await this.parseAndSaveAIResponse(chatId, aiResponseContent, chat.type === 'group');
+                    
+                } else {
+                    // OpenAI API format
+                    let baseURL = apiConfig.baseURL.trim();
+                    if (baseURL.endsWith('/')) {
+                        baseURL = baseURL.slice(0, -1);
+                    }
+                    if (baseURL.endsWith('/v1')) {
+                        baseURL = baseURL.slice(0, -3);
+                    }
+                    
+                    const apiKey = Alpine.store('settings').getRandomApiKey(apiConfig.apiKey);
+                    response = await fetch(`${baseURL}/v1/chat/completions`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: apiConfig.model,
+                            messages: messagesPayload,
+                            temperature: 0.8,
+                            stream: false
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`OpenAI API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+                    }
+                    
+                    const data = await response.json();
+                    const aiResponseContent = data.choices?.[0]?.message?.content;
+                    
+                    if (!aiResponseContent) {
+                        throw new Error('Invalid response format from OpenAI API');
+                    }
+                    
+                    await this.parseAndSaveAIResponse(chatId, aiResponseContent, chat.type === 'group');
+                }
                 
             } catch (error) {
                 console.error('AI response error:', error);
                 const errorMessage = {
                     id: Date.now().toString(),
                     chatId: chatId,
-                    content: '抱歉，AI响应出错了',
+                    content: `抱歉，AI响应出错了: ${error.message}`,
                     role: 'assistant',
                     timestamp: Date.now()
                 };
@@ -152,6 +333,87 @@ document.addEventListener('alpine:init', () => {
             } finally {
                 Alpine.store('app').setLoading(false);
             }
+        },
+        
+        async parseAndSaveAIResponse(chatId, responseContent, isGroup = false) {
+            try {
+                // Try to parse as JSON array first
+                let messages;
+                try {
+                    messages = JSON.parse(responseContent);
+                    if (!Array.isArray(messages)) {
+                        messages = [responseContent];
+                    }
+                } catch {
+                    // If parsing fails, treat as single message
+                    messages = [responseContent];
+                }
+                
+                // Process each message
+                for (let i = 0; i < messages.length; i++) {
+                    const msg = messages[i];
+                    let messageContent;
+                    let senderName = null;
+                    
+                    if (typeof msg === 'string') {
+                        messageContent = msg;
+                    } else if (typeof msg === 'object' && msg !== null) {
+                        if (isGroup && msg.name && msg.message) {
+                            // Group message format
+                            messageContent = msg.message;
+                            senderName = msg.name;
+                        } else if (msg.type) {
+                            // Special message type (like image, voice, etc.)
+                            // For now, just show the content or description
+                            messageContent = msg.content || msg.description || JSON.stringify(msg);
+                        } else {
+                            messageContent = JSON.stringify(msg);
+                        }
+                    } else {
+                        messageContent = String(msg);
+                    }
+                    
+                    const aiMessage = {
+                        id: `${Date.now()}_${i}`,
+                        chatId: chatId,
+                        content: messageContent,
+                        role: 'assistant',
+                        timestamp: Date.now() + i, // Add small offset for ordering
+                        senderName: senderName // For group chats
+                    };
+                    
+                    await db.messages.add(aiMessage);
+                }
+                
+                await this.loadMessages(chatId);
+                
+            } catch (error) {
+                console.error('Error parsing AI response:', error);
+                // Fallback: save as single message
+                const aiMessage = {
+                    id: Date.now().toString(),
+                    chatId: chatId,
+                    content: responseContent,
+                    role: 'assistant',
+                    timestamp: Date.now()
+                };
+                await db.messages.add(aiMessage);
+                await this.loadMessages(chatId);
+            }
+        },
+        
+        async getWorldBookContent() {
+            try {
+                const worldBooks = await db.worldBooks.toArray();
+                if (worldBooks.length === 0) return '';
+                
+                return '\n\n# 世界设定\n' + worldBooks.map(book => 
+                    `## ${book.name}\n${book.content}`
+                ).join('\n\n');
+            } catch (error) {
+                console.error('Error loading world books:', error);
+                return '';
+            }
         }
     });
 
@@ -159,7 +421,17 @@ document.addEventListener('alpine:init', () => {
         apiConfig: {
             baseURL: '',
             apiKey: '',
-            model: 'gpt-3.5-turbo'
+            model: 'gpt-3.5-turbo',
+            apiType: 'openai'
+        },
+        
+        // Helper function for multi-key API support
+        getRandomApiKey(keyString) {
+            if (keyString && keyString.includes(',')) {
+                const keys = keyString.split(',').map(key => key.trim());
+                return keys[Math.floor(Math.random() * keys.length)];
+            }
+            return keyString;
         },
         
         async loadConfig() {
@@ -203,6 +475,31 @@ document.addEventListener('alpine:init', () => {
         
         async loadPresets() {
             this.presets = await db.presets.orderBy('created').reverse().toArray();
+            
+            // Create default preset if none exists
+            if (this.presets.length === 0) {
+                await this.createDefaultPreset();
+            }
+        },
+        
+        async createDefaultPreset() {
+            const defaultPreset = {
+                id: 'preset_default',
+                name: '默认预设',
+                content: {
+                    promptSingle: DEFAULT_PROMPT_SINGLE,
+                    promptGroup: DEFAULT_PROMPT_GROUP
+                },
+                created: Date.now()
+            };
+            
+            await db.presets.add(defaultPreset);
+            await this.loadPresets();
+            
+            // Set as active preset
+            const globalSettings = Alpine.store('app').globalSettings;
+            globalSettings.activePresetId = defaultPreset.id;
+            await Alpine.store('app').saveGlobalSettings();
         },
         
         async createPreset(name, content) {
@@ -400,6 +697,14 @@ function chatInterface() {
         hasUserMessages() {
             const messages = Alpine.store('chat').currentMessages;
             return messages.some(m => m.role === 'user');
+        },
+        
+        getMessageDisplay(message) {
+            // For group chats, show sender name
+            if (message.senderName) {
+                return `${message.senderName}: ${message.content}`;
+            }
+            return message.content || '消息内容为空';
         }
     }
 }

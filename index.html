@@ -10,7 +10,7 @@
     
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=1.0.3">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -90,9 +90,14 @@
                             <i class="fas fa-arrow-left"></i>
                         </button>
                         <div class="header-title">聊天</div>
-                        <button class="header-button" @click="createNewChat()">
-                            <i class="fas fa-plus"></i>
-                        </button>
+                        <div class="header-actions">
+                            <button class="header-button" @click="createNewChat()" title="单聊">
+                                <i class="fas fa-user"></i>
+                            </button>
+                            <button class="header-button" @click="createNewGroupChat()" title="群聊">
+                                <i class="fas fa-users"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="content">
                         <div class="list-container" x-show="$store.chat.chats.length > 0">
@@ -108,7 +113,10 @@
                         </div>
                         <div x-show="$store.chat.chats.length === 0" class="text-center p-4">
                             <p class="text-secondary">暂无聊天记录</p>
-                            <button class="button mt-4" @click="createNewChat()">创建新聊天</button>
+                            <div class="button-group mt-4">
+                                <button class="button" @click="createNewChat()">创建单聊</button>
+                                <button class="button" @click="createNewGroupChat()">创建群聊</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -132,7 +140,7 @@
                                     <span x-show="message.role === 'assistant'" class="ai-avatar">🤖</span>
                                 </div>
                                 <div class="message-content">
-                                    <div class="message-text" x-text="message.content"></div>
+                                    <div class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
                                     <div class="message-time" x-text="formatTime(message.timestamp)"></div>
                                 </div>
                             </div>
@@ -180,16 +188,28 @@
                     </div>
                     <div class="content">
                         <div class="form-group">
+                            <label class="form-label">API类型</label>
+                            <select class="form-input" x-model="$store.settings.apiConfig.apiType">
+                                <option value="openai">OpenAI</option>
+                                <option value="gemini">Google Gemini</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">API地址</label>
-                            <input type="text" class="form-input" x-model="$store.settings.apiConfig.baseURL" placeholder="https://api.openai.com">
+                            <input type="text" class="form-input" x-model="$store.settings.apiConfig.baseURL" 
+                                :placeholder="$store.settings.apiConfig.apiType === 'gemini' ? '自动使用 Google 官方 API' : 'https://api.openai.com'"
+                                :disabled="$store.settings.apiConfig.apiType === 'gemini'">
                         </div>
                         <div class="form-group">
                             <label class="form-label">API密钥</label>
-                            <input type="password" class="form-input" x-model="$store.settings.apiConfig.apiKey" placeholder="sk-...">
+                            <input type="password" class="form-input" x-model="$store.settings.apiConfig.apiKey" 
+                                :placeholder="$store.settings.apiConfig.apiType === 'gemini' ? 'AIza...' : 'sk-...'">
+                            <small class="form-help">支持多个密钥，用逗号分隔</small>
                         </div>
                         <div class="form-group">
                             <label class="form-label">模型</label>
-                            <input type="text" class="form-input" x-model="$store.settings.apiConfig.model" placeholder="gpt-3.5-turbo">
+                            <input type="text" class="form-input" x-model="$store.settings.apiConfig.model" 
+                                :placeholder="$store.settings.apiConfig.apiType === 'gemini' ? 'gemini-1.5-flash' : 'gpt-3.5-turbo'">
                         </div>
                         <button class="button" @click="saveApiConfig()">保存设置</button>
                     </div>
@@ -256,6 +276,6 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script src="script.js?v=1.0.4"></script>
 </body>
 </html>
