@@ -337,16 +337,50 @@ document.addEventListener('alpine:init', () => {
         
         async parseAndSaveAIResponse(chatId, responseContent, isGroup = false) {
             try {
+                // Clean up the response content
+                let cleanContent = responseContent.trim();
+                
+                // Remove common markdown code block formatting if present
+                if (cleanContent.startsWith('```json')) {
+                    cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+                } else if (cleanContent.startsWith('```')) {
+                    cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+                }
+                
                 // Try to parse as JSON array first
                 let messages;
                 try {
-                    messages = JSON.parse(responseContent);
+                    messages = JSON.parse(cleanContent);
                     if (!Array.isArray(messages)) {
-                        messages = [responseContent];
+                        // If it's not an array, try to extract array from the response
+                        const arrayMatch = cleanContent.match(/\[(.*)\]/s);
+                        if (arrayMatch) {
+                            try {
+                                messages = JSON.parse(arrayMatch[0]);
+                            } catch {
+                                messages = [cleanContent];
+                            }
+                        } else {
+                            messages = [cleanContent];
+                        }
                     }
                 } catch {
-                    // If parsing fails, treat as single message
-                    messages = [responseContent];
+                    // Try to extract JSON array pattern manually
+                    const arrayMatch = cleanContent.match(/\[([\s\S]*)\]/);
+                    if (arrayMatch) {
+                        try {
+                            messages = JSON.parse(arrayMatch[0]);
+                        } catch {
+                            // If still fails, split by commas and clean up
+                            const parts = arrayMatch[1].split(/",\s*"/);
+                            messages = parts.map(part => 
+                                part.replace(/^["'\s]+|["'\s]+$/g, '')
+                            ).filter(part => part.length > 0);
+                        }
+                    } else {
+                        // Last resort: treat as single message
+                        messages = [cleanContent];
+                    }
                 }
                 
                 // Process each message
@@ -356,7 +390,7 @@ document.addEventListener('alpine:init', () => {
                     let senderName = null;
                     
                     if (typeof msg === 'string') {
-                        messageContent = msg;
+                        messageContent = msg.trim();
                     } else if (typeof msg === 'object' && msg !== null) {
                         if (isGroup && msg.name && msg.message) {
                             // Group message format
@@ -371,6 +405,11 @@ document.addEventListener('alpine:init', () => {
                         }
                     } else {
                         messageContent = String(msg);
+                    }
+                    
+                    // Skip empty messages
+                    if (!messageContent || messageContent.trim().length === 0) {
+                        continue;
                     }
                     
                     const aiMessage = {
@@ -389,11 +428,25 @@ document.addEventListener('alpine:init', () => {
                 
             } catch (error) {
                 console.error('Error parsing AI response:', error);
-                // Fallback: save as single message
+                // Fallback: save as single message, but clean it up first
+                let fallbackContent = responseContent.trim();
+                
+                // Remove any JSON array formatting from display
+                if (fallbackContent.startsWith('[') && fallbackContent.endsWith(']')) {
+                    try {
+                        const parsed = JSON.parse(fallbackContent);
+                        if (Array.isArray(parsed)) {
+                            fallbackContent = parsed.join('\n\n');
+                        }
+                    } catch {
+                        // Keep original if can't parse
+                    }
+                }
+                
                 const aiMessage = {
                     id: Date.now().toString(),
                     chatId: chatId,
-                    content: responseContent,
+                    content: fallbackContent,
                     role: 'assistant',
                     timestamp: Date.now()
                 };
