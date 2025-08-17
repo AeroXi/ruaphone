@@ -133,6 +133,17 @@ body {
     z-index: 10;
 }
 
+/* Chat page specific layout */
+.page.chat-page {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.page.chat-page .header {
+    flex-shrink: 0;
+}
+
 /* Home Screen */
 .home-screen {
     display: flex;
@@ -416,6 +427,7 @@ body {
     padding: 16px 20px;
     background: white;
     border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
 .input-container {

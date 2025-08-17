@@ -113,7 +113,7 @@
                 </div>
 
                 <!-- Chat Interface Page -->
-                <div class="page" :class="{ active: $store.app.currentPage === 'chat' }" x-data="chatInterface()">
+                <div class="page chat-page" :class="{ active: $store.app.currentPage === 'chat' }" x-data="chatInterface()">
                     <div class="header">
                         <button class="header-button" @click="$store.app.navigateTo('chat-list')">
                             <i class="fas fa-arrow-left"></i>
