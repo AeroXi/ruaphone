@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人设功能测试</title>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+</head>
+<body>
+    <div x-data="testApp()">
+        <h1>人设功能测试</h1>
+        
+        <div>
+            <h2>测试数据库连接</h2>
+            <button @click="testDatabase()">测试数据库</button>
+            <p x-text="dbStatus"></p>
+        </div>
+        
+        <div>
+            <h2>测试人设管理</h2>
+            <button @click="createTestPersona()">创建测试人设</button>
+            <button @click="loadPersonas()">加载人设</button>
+            <div>
+                <h3>人设列表:</h3>
+                <template x-for="persona in personas" :key="persona.id">
+                    <div>
+                        <strong x-text="persona.name"></strong>: <span x-text="persona.persona"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+        
+        <div>
+            <h2>测试聊天创建</h2>
+            <button @click="createTestChat()">创建测试聊天</button>
+            <button @click="loadChats()">加载聊天</button>
+            <div>
+                <h3>聊天列表:</h3>
+                <template x-for="chat in chats" :key="chat.id">
+                    <div>
+                        <strong x-text="chat.name"></strong>: <span x-text="chat.persona || '无人设'"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Database
+        const db = new Dexie('RuaPhoneDB');
+
+        // Define all tables in version 4
+        db.version(4).stores({
+            chats: '&id, name, type, created',
+            messages: '&id, chatId, timestamp, role',
+            apiConfig: '&id',
+            worldBooks: '&id, name, created',
+            presets: '&id, name, created',
+            personas: '&id, name, avatar, persona, created',
+            globalSettings: '&id',
+            moments: '&id, userId, userName, timestamp, content',
+            momentsComments: '&id, momentId, userId, userName, timestamp',
+            momentsLikes: '&id, momentId, userId, userName, timestamp'
+        });
+
+        function testApp() {
+            return {
+                dbStatus: '未测试',
+                personas: [],
+                chats: [],
+
+                async testDatabase() {
+                    try {
+                        await db.open();
+                        this.dbStatus = '数据库连接成功！';
+                        
+                        // 测试创建一个简单条目
+                        const testId = await db.personas.add({
+                            id: 'test_' + Date.now(),
+                            name: '测试人设',
+                            avatar: 'https://via.placeholder.com/40',
+                            persona: '这是一个测试人设',
+                            created: Date.now()
+                        });
+                        this.dbStatus += ` 测试数据创建成功，ID: ${testId}`;
+                        
+                        // 删除测试数据
+                        await db.personas.delete('test_' + (Date.now() - 1000));
+                    } catch (error) {
+                        this.dbStatus = `数据库连接失败: ${error.message}`;
+                        console.error('Database test error:', error);
+                    }
+                },
+
+                async createTestPersona() {
+                    try {
+                        const persona = {
+                            id: Date.now().toString(),
+                            name: '小助手',
+                            avatar: 'https://via.placeholder.com/40',
+                            persona: '一个友好、乐于助人的AI助手，总是以积极的态度回应用户。',
+                            created: Date.now()
+                        };
+                        
+                        await db.personas.add(persona);
+                        alert('测试人设创建成功！');
+                        await this.loadPersonas();
+                    } catch (error) {
+                        alert(`创建失败: ${error.message}`);
+                        console.error('Create persona error:', error);
+                    }
+                },
+
+                async loadPersonas() {
+                    try {
+                        this.personas = await db.personas.orderBy('created').reverse().toArray();
+                    } catch (error) {
+                        alert(`加载失败: ${error.message}`);
+                        console.error('Load personas error:', error);
+                    }
+                },
+
+                async createTestChat() {
+                    try {
+                        const chat = {
+                            id: Date.now().toString(),
+                            name: '测试聊天',
+                            type: 'single',
+                            persona: '一个友好的聊天伙伴',
+                            created: Date.now(),
+                            avatar: 'https://via.placeholder.com/40'
+                        };
+                        
+                        await db.chats.add(chat);
+                        alert('测试聊天创建成功！');
+                        await this.loadChats();
+                    } catch (error) {
+                        alert(`创建失败: ${error.message}`);
+                        console.error('Create chat error:', error);
+                    }
+                },
+
+                async loadChats() {
+                    try {
+                        this.chats = await db.chats.orderBy('created').reverse().toArray();
+                    } catch (error) {
+                        alert(`加载失败: ${error.message}`);
+                        console.error('Load chats error:', error);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

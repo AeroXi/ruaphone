@@ -1,13 +1,14 @@
 // Initialize Database
 const db = new Dexie('RuaPhoneDB');
 
-// Define all tables in version 3 to avoid upgrade issues
-db.version(3).stores({
+// Define all tables in version 4 to avoid upgrade issues
+db.version(4).stores({
     chats: '&id, name, type, created',
     messages: '&id, chatId, timestamp, role',
     apiConfig: '&id',
     worldBooks: '&id, name, created',
     presets: '&id, name, created',
+    personas: '&id, name, avatar, persona, created',
     globalSettings: '&id',
     moments: '&id, userId, userName, timestamp, content',
     momentsComments: '&id, momentId, userId, userName, timestamp',
@@ -46,7 +47,7 @@ const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色
 - **用户所在城市为:{myAddress}{worldBookContent}**
 
 # 你的角色设定：
-{chat.persona}
+{char.persona}
 
 # 对话者的角色设定：
 {user.persona}
@@ -54,10 +55,11 @@ const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色
 # 你的任务：
 1. 严格保持你的人设进行对话。
 2. 你的回复必须是一个JSON数组格式的字符串，每个元素是一条消息。
-3. 你必须一次性生成2到5条消息，模拟真人在短时间内连续发送多条信息的情景。
+3. 你必须一次性生成1到5条消息，模拟真人在短时间内连续发送多条信息的情景。
 4. 不要说任何与角色无关的话，不要解释自己是AI。
 5. 当用户发送图片时，请自然地对图片内容做出反应。
 6. 如果用户超过一个小时没有发送消息，则默认结束当前话题，因为用户可能是去办什么事。你可以询问，例如"怎么这么久没回我？刚才有事吗？"
+7. 当用户说今天你们做了什么事时，顺着ta的话说即可，就当做你们真的做了这件事。
 
 # JSON输出格式示例:
 [
@@ -159,11 +161,12 @@ document.addEventListener('alpine:init', () => {
             this.chats = await db.chats.orderBy('created').reverse().toArray();
         },
         
-        async createChat(name, type = 'single') {
+        async createChat(name, type = 'single', persona = '') {
             const chat = {
                 id: Date.now().toString(),
                 name: name,
                 type: type,
+                persona: persona,
                 created: Date.now(),
                 avatar: 'https://via.placeholder.com/40'
             };
@@ -244,7 +247,7 @@ document.addEventListener('alpine:init', () => {
                         .replace('{currentTime}', currentTime)
                         .replace('{myAddress}', globalSettings.myAddress || '未知城市')
                         .replace('{worldBookContent}', worldBookContent)
-                        .replace('{chat.persona}', chat.persona || '友好的AI助手')
+                        .replace('{char.persona}', chat.persona || '友好的AI助手')
                         .replace('{user.persona}', globalSettings.myPersona || '普通用户');
                 }
                 
@@ -567,7 +570,7 @@ document.addEventListener('alpine:init', () => {
         async createDefaultPreset() {
             const defaultPreset = {
                 id: 'preset_default',
-                name: '默认预设',
+                name: '默认人设',
                 content: {
                     promptSingle: DEFAULT_PROMPT_SINGLE,
                     promptGroup: DEFAULT_PROMPT_GROUP
@@ -595,6 +598,38 @@ document.addEventListener('alpine:init', () => {
             await db.presets.add(preset);
             await this.loadPresets();
             return preset.id;
+        }
+    });
+
+    Alpine.store('personas', {
+        personas: [],
+        
+        async loadPersonas() {
+            this.personas = await db.personas.orderBy('created').reverse().toArray();
+        },
+        
+        async createPersona(name, avatar, persona) {
+            const personaItem = {
+                id: Date.now().toString(),
+                name: name,
+                avatar: avatar,
+                persona: persona,
+                created: Date.now()
+            };
+            
+            await db.personas.add(personaItem);
+            await this.loadPersonas();
+            return personaItem.id;
+        },
+        
+        async updatePersona(id, data) {
+            await db.personas.update(id, data);
+            await this.loadPersonas();
+        },
+        
+        async deletePersona(id) {
+            await db.personas.delete(id);
+            await this.loadPersonas();
         }
     });
 
@@ -745,10 +780,12 @@ function phoneApp() {
         // Load all data from stores
         async loadAllData() {
             try {
+                await Alpine.store('app').loadGlobalSettings();
                 await Alpine.store('chat').loadChats();
                 await Alpine.store('settings').loadConfig();
                 await Alpine.store('worldBook').loadBooks();
                 await Alpine.store('presets').loadPresets();
+                await Alpine.store('personas').loadPersonas();
                 await Alpine.store('moments').loadMoments();
             } catch (error) {
                 console.error('Failed to load data:', error);
@@ -788,9 +825,11 @@ function phoneApp() {
 
         // Chat functions
         async createNewChat() {
+            // 简化版：直接询问名称和人设
             const name = prompt('请输入聊天对象名称:');
             if (name && name.trim()) {
-                const chatId = await Alpine.store('chat').createChat(name.trim());
+                const persona = prompt('请输入人设描述（可选）:') || '';
+                const chatId = await Alpine.store('chat').createChat(name.trim(), 'single', persona.trim());
                 this.navigateTo('chat', { chatId });
             }
         },
@@ -810,9 +849,17 @@ function phoneApp() {
 
         // Preset functions
         async createNewPreset() {
-            const name = prompt('请输入预设名称:');
+            const name = prompt('请输入人设名称:');
             if (name && name.trim()) {
                 await Alpine.store('presets').createPreset(name.trim(), '');
+            }
+        },
+
+        // Persona functions
+        async createNewPersona() {
+            const name = prompt('请输入人设名称:');
+            if (name && name.trim()) {
+                await Alpine.store('personas').createPersona(name.trim(), 'https://via.placeholder.com/40', '');
             }
         },
 

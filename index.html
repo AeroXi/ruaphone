@@ -10,7 +10,7 @@
     
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=1.0.3">
+    <link rel="stylesheet" href="styles.css?v=1.0.7">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -57,7 +57,14 @@
                             <div class="app-icon-image">
                                 <i class="fas fa-cog"></i>
                             </div>
-                            <div class="app-icon-label">预设</div>
+                            <div class="app-icon-label">人设</div>
+                        </div>
+                        
+                        <div class="app-icon" @click="navigateTo('personas')">
+                            <div class="app-icon-image">
+                                <i class="fas fa-user-friends"></i>
+                            </div>
+                            <div class="app-icon-label">人设库</div>
                         </div>
                         
                         <div class="app-icon" @click="navigateTo('api-settings')">
@@ -81,6 +88,11 @@
                             <div class="app-icon-label">主题</div>
                         </div>
                     </div>
+                    
+                    <!-- Version info -->
+                    <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #999; font-size: 10px; text-align: center;">
+                        RuaPhone v1.0.7-modal-fix
+                    </div>
                 </div>
 
                 <!-- Chat List Page -->
@@ -91,7 +103,7 @@
                         </button>
                         <div class="header-title">聊天</div>
                         <div class="header-actions">
-                            <button class="header-button" @click="createNewChat()" title="单聊">
+                            <button class="header-button" @click="$dispatch('open-create-chat')" title="单聊">
                                 <i class="fas fa-user"></i>
                             </button>
                             <button class="header-button" @click="createNewGroupChat()" title="群聊">
@@ -127,7 +139,10 @@
                         <button class="header-button" @click="$store.app.navigateTo('chat-list')">
                             <i class="fas fa-arrow-left"></i>
                         </button>
-                        <div class="header-title" x-text="currentChat?.name || '聊天'"></div>
+                        <div class="header-center">
+                            <div class="header-title" x-text="currentChat?.name || '聊天'"></div>
+                            <div class="header-subtitle" x-show="currentChat?.persona" x-text="currentChat?.persona.slice(0, 20) + (currentChat?.persona.length > 20 ? '...' : '')"></div>
+                        </div>
                         <div style="width: 32px;"></div>
                     </div>
                     
@@ -261,7 +276,7 @@
                                 <div class="list-item" @click="editPreset(preset.id)">
                                     <div class="list-item-content">
                                         <div class="list-item-title" x-text="preset.name"></div>
-                                        <div class="list-item-subtitle" x-text="preset.content.substring(0, 50) + '...' || '暂无内容'"></div>
+                                        <div class="list-item-subtitle" x-text="typeof preset.content === 'string' ? (preset.content.substring(0, 50) + '...') : '暂无内容'"></div>
                                     </div>
                                 </div>
                             </template>
@@ -269,6 +284,53 @@
                         <div x-show="$store.presets.presets.length === 0" class="text-center p-4">
                             <p class="text-secondary">暂无预设</p>
                             <button class="button mt-4" @click="createNewPreset()">创建预设</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Personas Page -->
+                <div class="page" :class="{ active: $store.app.currentPage === 'personas' }">
+                    <div class="header">
+                        <button class="header-button" @click="navigateTo('home')">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="header-title">人设库</div>
+                        <button class="header-button" @click="$dispatch('open-create-persona')">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="content">
+                        <div class="personas-list">
+                            <template x-for="persona in $store.personas.personas" :key="persona.id">
+                                <div class="persona-item">
+                                    <div class="persona-avatar">
+                                        <img :src="persona.avatar" :alt="persona.name" />
+                                    </div>
+                                    <div class="persona-info">
+                                        <div class="persona-name" x-text="persona.name"></div>
+                                        <div class="persona-preview" x-text="persona.persona.slice(0, 50) + (persona.persona.length > 50 ? '...' : '')"></div>
+                                    </div>
+                                    <div class="persona-actions">
+                                        <button class="edit-button" @click="$dispatch('edit-persona', persona)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="delete-button" @click="
+                                            if (confirm('确定要删除这个人设吗？')) {
+                                                $store.personas.deletePersona(persona.id);
+                                            }
+                                        ">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <div x-show="$store.personas.personas.length === 0" class="empty-state">
+                                <i class="fas fa-user-friends empty-icon"></i>
+                                <div class="empty-title">暂无人设</div>
+                                <div class="empty-subtitle">点击右上角 + 创建你的第一个人设</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -409,8 +471,157 @@
                 </div>
             </div>
         </div>
+
+        <!-- Create Chat Modal -->
+        <div class="modal" :class="{ active: showCreateChatModal }" 
+             x-data="{
+                 showCreateChatModal: false,
+                 chatName: '',
+                 selectedPersonaId: '',
+                 selectedPersona: null,
+                 init() {
+                     console.log('Create Chat Modal initialized:', this.showCreateChatModal);
+                 }
+             }"
+             @open-create-chat.window="
+                 chatName = ''; 
+                 selectedPersonaId = ''; 
+                 selectedPersona = null; 
+                 showCreateChatModal = true;
+                 console.log('Opening create chat modal');
+             ">
+            <div class="modal-overlay" @click="showCreateChatModal = false"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>创建新聊天</h3>
+                    <button class="close-button" @click="showCreateChatModal = false">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>聊天对象名称</label>
+                        <input type="text" x-model="chatName" placeholder="请输入聊天对象名称" />
+                    </div>
+                    <div class="form-group">
+                        <label>选择人设（可选）</label>
+                        <div class="persona-selector">
+                            <div class="persona-option" 
+                                 :class="{ selected: selectedPersonaId === '' }"
+                                 @click="selectedPersonaId = ''; selectedPersona = null;">
+                                <div class="persona-avatar">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div class="persona-name">默认人设</div>
+                            </div>
+                            <template x-for="persona in $store.personas.personas" :key="persona.id">
+                                <div class="persona-option" 
+                                     :class="{ selected: selectedPersonaId === persona.id }"
+                                     @click="selectedPersonaId = persona.id; selectedPersona = persona;">
+                                    <div class="persona-avatar">
+                                        <img :src="persona.avatar" :alt="persona.name" />
+                                    </div>
+                                    <div class="persona-name" x-text="persona.name"></div>
+                                </div>
+                            </template>
+                        </div>
+                        <div x-show="selectedPersona" class="selected-persona-preview">
+                            <strong>选中的人设：</strong>
+                            <p x-text="selectedPersona?.persona"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="button secondary" @click="showCreateChatModal = false">取消</button>
+                    <button class="button primary" @click="
+                        if (!chatName.trim()) { 
+                            alert('请输入聊天对象名称'); 
+                            return; 
+                        }
+                        const persona = selectedPersona ? selectedPersona.persona : '';
+                        $store.chat.createChat(chatName.trim(), 'single', persona).then(chatId => {
+                            $store.app.navigateTo('chat', { chatId });
+                            showCreateChatModal = false;
+                        });
+                    ">创建</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Persona Edit Modal -->
+        <div class="modal" :class="{ active: showPersonaModal }" 
+             x-data="{ 
+                 showPersonaModal: false, 
+                 editingPersonaId: null,
+                 personaName: '',
+                 personaAvatar: 'https://via.placeholder.com/40',
+                 personaText: '',
+                 init() {
+                     console.log('Persona Modal initialized:', this.showPersonaModal);
+                 }
+             }"
+             @open-create-persona.window="
+                 editingPersonaId = null;
+                 personaName = '';
+                 personaAvatar = 'https://via.placeholder.com/40';
+                 personaText = '';
+                 showPersonaModal = true;
+             "
+             @edit-persona.window="
+                 editingPersonaId = $event.detail.id;
+                 personaName = $event.detail.name;
+                 personaAvatar = $event.detail.avatar;
+                 personaText = $event.detail.persona;
+                 showPersonaModal = true;
+             ">
+            <div class="modal-overlay" @click="showPersonaModal = false"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 x-text="editingPersonaId ? '编辑人设' : '创建人设'"></h3>
+                    <button class="close-button" @click="showPersonaModal = false">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>人设名称</label>
+                        <input type="text" x-model="personaName" placeholder="请输入人设名称" />
+                    </div>
+                    <div class="form-group">
+                        <label>头像URL</label>
+                        <input type="text" x-model="personaAvatar" placeholder="请输入头像URL" />
+                    </div>
+                    <div class="form-group">
+                        <label>人设描述</label>
+                        <textarea x-model="personaText" rows="6" placeholder="请输入详细的人设描述..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="button secondary" @click="showPersonaModal = false">取消</button>
+                    <button class="button primary" @click="
+                        if (!personaName.trim()) {
+                            alert('请输入人设名称');
+                            return;
+                        }
+                        if (editingPersonaId) {
+                            $store.personas.updatePersona(editingPersonaId, {
+                                name: personaName.trim(),
+                                avatar: personaAvatar,
+                                persona: personaText.trim()
+                            }).then(() => { showPersonaModal = false; });
+                        } else {
+                            $store.personas.createPersona(
+                                personaName.trim(),
+                                personaAvatar,
+                                personaText.trim()
+                            ).then(() => { showPersonaModal = false; });
+                        }
+                    " x-text="editingPersonaId ? '保存' : '创建'"></button>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script src="script.js?v=1.0.4"></script>
+    <script src="script.js?v=1.0.7"></script>
 </body>
 </html>
