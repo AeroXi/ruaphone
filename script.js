@@ -2,8 +2,8 @@
 const db = new Dexie('RuaPhoneDB');
 
 // Define all tables in version 4 to avoid upgrade issues
-db.version(4).stores({
-    chats: '&id, name, type, created',
+db.version(5).stores({
+    chats: '&id, name, type, personaId, created',
     messages: '&id, chatId, timestamp, role',
     apiConfig: '&id',
     worldBooks: '&id, name, created',
@@ -161,14 +161,15 @@ document.addEventListener('alpine:init', () => {
             this.chats = await db.chats.orderBy('created').reverse().toArray();
         },
         
-        async createChat(name, type = 'single', persona = '') {
+        async createChat(name, type = 'single', persona = '', personaId = '', avatar = '') {
             const chat = {
                 id: Date.now().toString(),
                 name: name,
                 type: type,
                 persona: persona,
+                personaId: personaId,
                 created: Date.now(),
-                avatar: 'https://via.placeholder.com/40'
+                avatar: avatar || 'https://via.placeholder.com/40'
             };
             
             await db.chats.add(chat);
@@ -825,13 +826,8 @@ function phoneApp() {
 
         // Chat functions
         async createNewChat() {
-            // 简化版：直接询问名称和人设
-            const name = prompt('请输入聊天对象名称:');
-            if (name && name.trim()) {
-                const persona = prompt('请输入人设描述（可选）:') || '';
-                const chatId = await Alpine.store('chat').createChat(name.trim(), 'single', persona.trim());
-                this.navigateTo('chat', { chatId });
-            }
+            // 使用模态框创建聊天
+            document.dispatchEvent(new CustomEvent('open-create-chat'));
         },
 
         async openChat(chatId) {

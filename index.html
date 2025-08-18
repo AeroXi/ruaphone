@@ -115,7 +115,14 @@
                         <div class="list-container" x-show="$store.chat.chats.length > 0">
                             <template x-for="chat in $store.chat.chats" :key="chat.id">
                                 <div class="list-item" @click="openChat(chat.id)">
-                                    <img :src="chat.avatar || 'https://via.placeholder.com/40'" class="list-item-avatar">
+                                    <div class="list-item-avatar-container">
+                                        <img x-show="chat.avatar && chat.avatar !== 'https://via.placeholder.com/40'" 
+                                             :src="chat.avatar" 
+                                             :alt="chat.name"
+                                             class="list-item-avatar"
+                                             @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='flex';">
+                                        <div x-show="!chat.avatar || chat.avatar === 'https://via.placeholder.com/40'" class="list-item-avatar-fallback">🤖</div>
+                                    </div>
                                     <div class="list-item-content">
                                         <div class="list-item-title" x-text="chat.name"></div>
                                         <div class="list-item-subtitle" x-text="chat.lastMessage || '暂无消息'"></div>
@@ -140,8 +147,14 @@
                             <i class="fas fa-arrow-left"></i>
                         </button>
                         <div class="header-center">
+                            <div class="chat-header-avatar">
+                                <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
+                                     :src="currentChat?.avatar" 
+                                     :alt="currentChat?.name"
+                                     @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
+                                <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'" class="fallback-avatar">🤖</span>
+                            </div>
                             <div class="header-title" x-text="currentChat?.name || '聊天'"></div>
-                            <div class="header-subtitle" x-show="currentChat?.persona" x-text="currentChat?.persona.slice(0, 20) + (currentChat?.persona.length > 20 ? '...' : '')"></div>
                         </div>
                         <div style="width: 32px;"></div>
                     </div>
@@ -152,7 +165,13 @@
                             <div class="message" :class="{ 'user': message.role === 'user', 'assistant': message.role === 'assistant' }">
                                 <div class="avatar">
                                     <span x-show="message.role === 'user'" class="user-avatar">👤</span>
-                                    <span x-show="message.role === 'assistant'" class="ai-avatar">🤖</span>
+                                    <div x-show="message.role === 'assistant'" class="ai-avatar">
+                                        <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
+                                             :src="currentChat?.avatar" 
+                                             :alt="currentChat?.name"
+                                             @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
+                                        <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'">🤖</span>
+                                    </div>
                                 </div>
                                 <div class="message-content">
                                     <div class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
@@ -164,7 +183,13 @@
                         <!-- Loading indicator -->
                         <div x-show="$store.app.isLoading" class="message assistant">
                             <div class="avatar">
-                                <span class="ai-avatar">🤖</span>
+                                <div class="ai-avatar">
+                                    <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
+                                         :src="currentChat?.avatar" 
+                                         :alt="currentChat?.name"
+                                         @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
+                                    <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'">🤖</span>
+                                </div>
                             </div>
                             <div class="message-content">
                                 <div class="message-text">AI正在思考中...</div>
@@ -476,7 +501,6 @@
         <div class="modal" :class="{ active: showCreateChatModal }" 
              x-data="{
                  showCreateChatModal: false,
-                 chatName: '',
                  selectedPersonaId: '',
                  selectedPersona: null,
                  init() {
@@ -484,7 +508,6 @@
                  }
              }"
              @open-create-chat.window="
-                 chatName = ''; 
                  selectedPersonaId = ''; 
                  selectedPersona = null; 
                  showCreateChatModal = true;
@@ -500,20 +523,8 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label>聊天对象名称</label>
-                        <input type="text" x-model="chatName" placeholder="请输入聊天对象名称" />
-                    </div>
-                    <div class="form-group">
-                        <label>选择人设（可选）</label>
+                        <label>选择人设</label>
                         <div class="persona-selector">
-                            <div class="persona-option" 
-                                 :class="{ selected: selectedPersonaId === '' }"
-                                 @click="selectedPersonaId = ''; selectedPersona = null;">
-                                <div class="persona-avatar">
-                                    <i class="fas fa-user"></i>
-                                </div>
-                                <div class="persona-name">默认人设</div>
-                            </div>
                             <template x-for="persona in $store.personas.personas" :key="persona.id">
                                 <div class="persona-option" 
                                      :class="{ selected: selectedPersonaId === persona.id }"
@@ -534,12 +545,11 @@
                 <div class="modal-footer">
                     <button class="button secondary" @click="showCreateChatModal = false">取消</button>
                     <button class="button primary" @click="
-                        if (!chatName.trim()) { 
-                            alert('请输入聊天对象名称'); 
+                        if (!selectedPersona) { 
+                            alert('请选择一个人设'); 
                             return; 
                         }
-                        const persona = selectedPersona ? selectedPersona.persona : '';
-                        $store.chat.createChat(chatName.trim(), 'single', persona).then(chatId => {
+                        $store.chat.createChat(selectedPersona.name, 'single', selectedPersona.persona, selectedPersona.id, selectedPersona.avatar).then(chatId => {
                             $store.app.navigateTo('chat', { chatId });
                             showCreateChatModal = false;
                         });
