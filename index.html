@@ -67,7 +67,7 @@
                             <div class="app-icon-label">API设置</div>
                         </div>
                         
-                        <div class="app-icon" @click="navigateTo('moments')">
+                        <div class="app-icon" @click="navigateTo('moments')" data-testid="moments-icon">
                             <div class="app-icon-image">
                                 <i class="fas fa-heart"></i>
                             </div>
@@ -269,6 +269,141 @@
                         <div x-show="$store.presets.presets.length === 0" class="text-center p-4">
                             <p class="text-secondary">暂无预设</p>
                             <button class="button mt-4" @click="createNewPreset()">创建预设</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Moments Page -->
+                <div class="page moments-page" :class="{ active: $store.app.currentPage === 'moments' }" x-data="momentsInterface()">
+                    <div class="header">
+                        <button class="header-button" @click="navigateTo('home')">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="header-title">朋友圈</div>
+                        <button class="header-button" @click="showCreateMoment()">
+                            <i class="fas fa-camera"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Moments Feed -->
+                    <div class="moments-feed" x-ref="momentsContainer">
+                        <template x-for="moment in $store.moments.moments" :key="moment.id">
+                            <div class="moment-item">
+                                <!-- User Info -->
+                                <div class="moment-header">
+                                    <div class="moment-avatar" x-text="moment.userAvatar"></div>
+                                    <div class="moment-user-info">
+                                        <div class="moment-username" x-text="moment.userName"></div>
+                                        <div class="moment-time" x-text="$store.moments.formatTime(moment.timestamp)"></div>
+                                        <div x-show="moment.location" class="moment-location" x-text="moment.location"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Content -->
+                                <div class="moment-content">
+                                    <div x-show="moment.content" class="moment-text" x-text="moment.content"></div>
+                                    
+                                    <!-- Images Grid -->
+                                    <div x-show="moment.images && moment.images.length > 0" class="moment-images" :class="'images-' + moment.images.length">
+                                        <template x-for="(image, index) in moment.images" :key="index">
+                                            <div class="moment-image">
+                                                <img :src="image" :alt="'图片' + (index + 1)" @click="showImage(image)">
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                                
+                                <!-- Actions -->
+                                <div class="moment-actions">
+                                    <button class="action-button" @click="$store.moments.toggleLike(moment.id)" 
+                                            :class="{ liked: $store.moments.isLikedByUser(moment.id) }">
+                                        <i class="fas fa-heart"></i>
+                                    </button>
+                                    <button class="action-button" @click="showCommentInput(moment.id)">
+                                        <i class="fas fa-comment"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Likes and Comments Info -->
+                                <div class="moment-stats">
+                                    <div x-show="$store.moments.getMomentsLikes(moment.id).length > 0" class="likes-info">
+                                        <i class="fas fa-heart"></i>
+                                        <span x-text="$store.moments.getMomentsLikes(moment.id).map(l => l.userName).join(', ')"></span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Comments -->
+                                <div x-show="$store.moments.getMomentsComments(moment.id).length > 0" class="moment-comments">
+                                    <template x-for="comment in $store.moments.getMomentsComments(moment.id)" :key="comment.id">
+                                        <div class="comment-item">
+                                            <span class="comment-user" x-text="comment.userName"></span>
+                                            <span x-show="comment.replyTo" class="comment-reply">回复<span x-text="comment.replyTo"></span></span>
+                                            <span class="comment-content" x-text="comment.content"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                                
+                                <!-- Comment Input -->
+                                <div x-show="activeCommentInput === moment.id" class="comment-input-container">
+                                    <input type="text" x-model="commentText" 
+                                           :placeholder="'评论' + moment.userName + '...'"
+                                           @keydown.enter="submitComment(moment.id)"
+                                           class="comment-input">
+                                    <button @click="submitComment(moment.id)" class="comment-submit">发送</button>
+                                </div>
+                            </div>
+                        </template>
+                        
+                        <!-- Empty State -->
+                        <div x-show="$store.moments.moments.length === 0" class="empty-state">
+                            <i class="fas fa-heart-broken"></i>
+                            <p>还没有朋友圈动态</p>
+                            <button class="button" @click="showCreateMoment()">发布第一条朋友圈</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Create Moment Modal -->
+                    <div x-show="$store.moments.showCreateModal" class="modal-overlay" @click="hideCreateMoment()">
+                        <div class="modal" @click.stop>
+                            <div class="modal-header">
+                                <button @click="hideCreateMoment()">取消</button>
+                                <span>发朋友圈</span>
+                                <button @click="publishMoment()" :disabled="!newMomentContent.trim()">发表</button>
+                            </div>
+                            <div class="modal-content">
+                                <textarea x-model="newMomentContent" 
+                                         placeholder="这一刻的想法..." 
+                                         class="moment-textarea"
+                                         rows="6"></textarea>
+                                
+                                <!-- Image URL Input (简化实现) -->
+                                <div class="image-input-section">
+                                    <label>添加图片 (可选)</label>
+                                    <div>
+                                        <input type="url" x-model="newImageUrl" 
+                                               placeholder="输入图片URL..." 
+                                               class="image-url-input">
+                                        <button @click="addImage()" :disabled="!newImageUrl.trim()">添加</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Preview Images -->
+                                <div x-show="newMomentImages.length > 0" class="preview-images">
+                                    <template x-for="(image, index) in newMomentImages" :key="index">
+                                        <div class="preview-image">
+                                            <img :src="image" :alt="'预览' + (index + 1)">
+                                            <button @click="removeImage(index)" class="remove-image">×</button>
+                                        </div>
+                                    </template>
+                                </div>
+                                
+                                <!-- Location Input -->
+                                <div class="location-input-section">
+                                    <input type="text" x-model="newMomentLocation" 
+                                           placeholder="所在位置 (可选)..." 
+                                           class="location-input">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

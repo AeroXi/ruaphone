@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Database</title>
+    <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
+</head>
+<body>
+    <h1>Database Debug</h1>
+    <button onclick="testDB()">Test Database</button>
+    <button onclick="clearDB()">Clear Database</button>
+    <div id="output"></div>
+
+    <script>
+        // Initialize Database
+        const db = new Dexie('RuaPhoneDB');
+        db.version(1).stores({
+            chats: '&id, name, type, created',
+            messages: '&id, chatId, timestamp, role',
+            apiConfig: '&id',
+            worldBooks: '&id, name, created',
+            presets: '&id, name, created',
+            globalSettings: '&id'
+        });
+
+        db.version(2).stores({
+            chats: '&id, name, type, created',
+            messages: '&id, chatId, timestamp, role',
+            apiConfig: '&id',
+            worldBooks: '&id, name, created',
+            presets: '&id, name, created',
+            globalSettings: '&id',
+            moments: '&id, userId, userName, timestamp, content',
+            momentsComments: '&id, momentId, userId, userName, timestamp',
+            momentsLikes: '&id, momentId, userId, userName, timestamp'
+        });
+
+        async function testDB() {
+            const output = document.getElementById('output');
+            try {
+                await db.open();
+                output.innerHTML += '<p>Database opened successfully</p>';
+                
+                // Test adding a moment
+                const moment = {
+                    id: Date.now().toString(),
+                    userId: 'user',
+                    userName: '我',
+                    userAvatar: '👤',
+                    content: '测试朋友圈',
+                    images: [],
+                    location: '',
+                    timestamp: Date.now()
+                };
+                
+                await db.moments.add(moment);
+                output.innerHTML += '<p>Moment added successfully</p>';
+                
+                const moments = await db.moments.toArray();
+                output.innerHTML += '<p>Total moments: ' + moments.length + '</p>';
+                output.innerHTML += '<pre>' + JSON.stringify(moments, null, 2) + '</pre>';
+                
+            } catch (error) {
+                output.innerHTML += '<p style="color: red;">Error: ' + error.message + '</p>';
+                console.error('Database error:', error);
+            }
+        }
+
+        async function clearDB() {
+            try {
+                await db.delete();
+                document.getElementById('output').innerHTML += '<p>Database cleared</p>';
+                location.reload();
+            } catch (error) {
+                console.error('Error clearing database:', error);
+            }
+        }
+    </script>
+</body>
+</html>
