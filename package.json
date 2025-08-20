@@ -10,7 +10,11 @@
     "deploy": "npm run build && wrangler pages deploy dist",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug"
+    "test:debug": "playwright test --debug",
+    "version:patch": "node update-version.js patch",
+    "version:minor": "node update-version.js minor",
+    "version:major": "node update-version.js major",
+    "release": "npm run version:patch && git add . && git commit -m \"release: v$(node -e 'console.log(require(\\\"./update-version.js\\\").getCurrentVersion())')\" && git push"
   },
   "keywords": [],
   "author": "",

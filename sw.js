@@ -1,9 +1,10 @@
-const CACHE_NAME = 'ruaphone-v3';
+const CACHE_NAME = 'ruaphone-v1.0.8';
 const urlsToCache = [
   '/',
   '/index.html',
   '/styles.css',
   '/script.js',
+  '/version-update.js',
   '/manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
   'https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js',
@@ -21,6 +22,10 @@ const NO_CACHE_URLS = [
 
 // Install event
 self.addEventListener('install', event => {
+  console.log('Service Worker installing, cache name:', CACHE_NAME);
+  // Skip waiting to activate immediately
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
@@ -78,16 +83,28 @@ self.addEventListener('fetch', event => {
 
 // Activate event
 self.addEventListener('activate', event => {
+  console.log('Service Worker activating, cache name:', CACHE_NAME);
+  // Take control immediately
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    Promise.all([
+      self.clients.claim(),
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            if (cacheName !== CACHE_NAME) {
+              console.log('Deleting old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    ])
   );
+});
+
+// Handle messages from clients
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

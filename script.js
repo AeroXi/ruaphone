@@ -1454,7 +1454,7 @@ function phoneApp() {
                 });
             } else {
                 // Simulate battery drain
-                this.batteryLevel = Math.max(10, this.batteryLevel - Math.random() * 2);
+                this.batteryLevel = Math.max(10, Math.round(this.batteryLevel - Math.random() * 2));
             }
         },
 
