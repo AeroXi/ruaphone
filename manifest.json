@@ -1,7 +1,7 @@
 {
   "name": "RuaPhone",
   "short_name": "RuaPhone",
-  "description": "轻量级AI聊天模拟器，具有手机界面",
+  "description": "可爱的小手机rua~",
   "start_url": "/",
   "scope": "/",
   "display": "fullscreen",
