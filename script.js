@@ -358,6 +358,72 @@ async function importAllData(importData = null, showFileInput = true) {
     }
 }
 
+// Smart API URL builder function
+function buildApiURL(baseURL, endpoint = '/chat/completions') {
+    if (!baseURL) {
+        throw new Error('Base URL is required');
+    }
+    
+    // Clean up the base URL
+    let cleanBaseURL = baseURL.trim();
+    
+    // Remove trailing slash
+    if (cleanBaseURL.endsWith('/')) {
+        cleanBaseURL = cleanBaseURL.slice(0, -1);
+    }
+    
+    // Handle different base URL formats:
+    // Format 1: https://example.com/v1 -> https://example.com/v1/chat/completions
+    // Format 2: https://example.com -> https://example.com/v1/chat/completions
+    
+    let apiURL;
+    
+    if (cleanBaseURL.endsWith('/v1')) {
+        // Format 1: baseURL already includes /v1
+        apiURL = `${cleanBaseURL}${endpoint}`;
+    } else {
+        // Format 2: baseURL doesn't include /v1, need to add it
+        apiURL = `${cleanBaseURL}/v1${endpoint}`;
+    }
+    
+    console.log(`API URL built: ${baseURL} -> ${apiURL}`);
+    return apiURL;
+}
+
+// Test the URL builder function (only in development)
+if (typeof window !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.port)) {
+    window.testApiURL = function() {
+        console.log('Testing API URL builder...');
+        
+        // Test cases
+        const testCases = [
+            'https://api.openai.com',
+            'https://api.openai.com/',
+            'https://api.openai.com/v1',
+            'https://api.openai.com/v1/',
+            'https://api.example.com',
+            'https://api.example.com/',
+            'https://api.example.com/v1',
+            'https://api.example.com/v1/',
+            'http://localhost:8080',
+            'http://localhost:8080/v1'
+        ];
+        
+        testCases.forEach(testURL => {
+            try {
+                const result = buildApiURL(testURL);
+                console.log(`✅ ${testURL} -> ${result}`);
+            } catch (error) {
+                console.log(`❌ ${testURL} -> Error: ${error.message}`);
+            }
+        });
+        
+        console.log('URL builder test completed!');
+    };
+    
+    console.log('Development mode: testApiURL() function available');
+}
+
 // Default prompt templates
 const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色。
 
@@ -738,17 +804,11 @@ document.addEventListener('alpine:init', () => {
                     await this.parseAndSaveAIResponse(chatId, aiResponseContent, chat.type === 'group');
                     
                 } else {
-                    // OpenAI API format
-                    let baseURL = apiConfig.baseURL.trim();
-                    if (baseURL.endsWith('/')) {
-                        baseURL = baseURL.slice(0, -1);
-                    }
-                    if (baseURL.endsWith('/v1')) {
-                        baseURL = baseURL.slice(0, -3);
-                    }
-                    
+                    // OpenAI API format - smart URL handling
                     const apiKey = Alpine.store('settings').getRandomApiKey(apiConfig.apiKey);
-                    response = await fetch(`${baseURL}/v1/chat/completions`, {
+                    const apiURL = buildApiURL(apiConfig.baseURL);
+                    
+                    response = await fetch(apiURL, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${apiKey}`,

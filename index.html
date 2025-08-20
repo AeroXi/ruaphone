@@ -240,6 +240,9 @@
                             <input type="text" class="form-input" x-model="$store.settings.apiConfig.baseURL" 
                                 :placeholder="$store.settings.apiConfig.apiType === 'gemini' ? '自动使用 Google 官方 API' : 'https://api.openai.com'"
                                 :disabled="$store.settings.apiConfig.apiType === 'gemini'">
+                            <small class="form-help" x-show="$store.settings.apiConfig.apiType !== 'gemini'">
+                                支持格式：https://api.example.com 或 https://api.example.com/v1
+                            </small>
                         </div>
                         <div class="form-group">
                             <label class="form-label">API密钥</label>
