@@ -7,7 +7,6 @@ db.version(5).stores({
     messages: '&id, chatId, timestamp, role',
     apiConfig: '&id',
     worldBooks: '&id, name, created',
-    presets: '&id, name, created',
     personas: '&id, name, avatar, persona, created',
     globalSettings: '&id',
     moments: '&id, userId, userName, timestamp, content',
@@ -67,6 +66,63 @@ if (typeof window !== 'undefined') {
     window.exportData = exportAllData;
     window.importData = importAllData;
 }
+
+// Image utility functions
+window.compressImage = function(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
+    return new Promise((resolve) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = function() {
+            // Calculate new dimensions
+            let { width, height } = img;
+            
+            if (width > height) {
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width = (width * maxHeight) / height;
+                    height = maxHeight;
+                }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Draw and compress
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+            resolve(compressedDataUrl);
+        };
+        
+        img.src = URL.createObjectURL(file);
+    });
+};
+
+window.fileToBase64 = function(file) {
+    return new Promise((resolve, reject) => {
+        // Check file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            reject(new Error('图片文件过大，请选择小于5MB的图片'));
+            return;
+        }
+        
+        // Check file type
+        if (!file.type.startsWith('image/')) {
+            reject(new Error('请选择图片文件'));
+            return;
+        }
+        
+        // Compress and convert to base64
+        window.compressImage(file).then(dataUrl => {
+            resolve(dataUrl);
+        }).catch(reject);
+    });
+};
 
 // Database upgrade handling function
 async function handleDatabaseUpgrade() {
@@ -329,7 +385,6 @@ async function importAllData(importData = null, showFileInput = true) {
                 await Alpine.store('chat').loadChats();
                 await Alpine.store('settings').loadConfig();
                 await Alpine.store('worldBook').loadBooks();
-                await Alpine.store('presets').loadPresets();
                 await Alpine.store('personas').loadPersonas();
                 await Alpine.store('moments').loadMoments();
                 
@@ -1174,51 +1229,6 @@ document.addEventListener('alpine:init', () => {
         }
     });
 
-    Alpine.store('presets', {
-        presets: [],
-        
-        async loadPresets() {
-            this.presets = await db.presets.orderBy('created').reverse().toArray();
-            
-            // Create default preset if none exists
-            if (this.presets.length === 0) {
-                await this.createDefaultPreset();
-            }
-        },
-        
-        async createDefaultPreset() {
-            const defaultPreset = {
-                id: 'preset_default',
-                name: '默认人设',
-                content: {
-                    promptSingle: DEFAULT_PROMPT_SINGLE,
-                    promptGroup: DEFAULT_PROMPT_GROUP
-                },
-                created: Date.now()
-            };
-            
-            await db.presets.add(defaultPreset);
-            await this.loadPresets();
-            
-            // Set as active preset
-            const globalSettings = Alpine.store('app').globalSettings;
-            globalSettings.activePresetId = defaultPreset.id;
-            await Alpine.store('app').saveGlobalSettings();
-        },
-        
-        async createPreset(name, content) {
-            const preset = {
-                id: Date.now().toString(),
-                name: name,
-                content: content,
-                created: Date.now()
-            };
-            
-            await db.presets.add(preset);
-            await this.loadPresets();
-            return preset.id;
-        }
-    });
 
     Alpine.store('personas', {
         personas: [],
@@ -1408,7 +1418,6 @@ function phoneApp() {
                 await Alpine.store('chat').loadChats();
                 await Alpine.store('settings').loadConfig();
                 await Alpine.store('worldBook').loadBooks();
-                await Alpine.store('presets').loadPresets();
                 await Alpine.store('personas').loadPersonas();
                 await Alpine.store('moments').loadMoments();
                 
@@ -1460,6 +1469,17 @@ function phoneApp() {
             document.dispatchEvent(new CustomEvent('open-create-chat'));
         },
 
+        async createNewGroupChat() {
+            // 创建群聊功能
+            const groupName = prompt('请输入群聊名称:');
+            if (groupName && groupName.trim()) {
+                const chatId = await Alpine.store('chat').createChat(groupName.trim(), 'group');
+                if (chatId) {
+                    this.navigateTo('chat', { chatId });
+                }
+            }
+        },
+
         async openChat(chatId) {
             await Alpine.store('chat').loadMessages(chatId);
             this.navigateTo('chat', { chatId });
@@ -1473,13 +1493,6 @@ function phoneApp() {
             }
         },
 
-        // Preset functions
-        async createNewPreset() {
-            const name = prompt('请输入人设名称:');
-            if (name && name.trim()) {
-                await Alpine.store('presets').createPreset(name.trim(), '');
-            }
-        },
 
         // Persona functions
         async createNewPersona() {
@@ -1592,7 +1605,6 @@ function momentsInterface() {
         activeCommentInput: null,
         commentText: '',
         newMomentContent: '',
-        newImageUrl: '',
         newMomentImages: [],
         newMomentLocation: '',
         
@@ -1608,15 +1620,26 @@ function momentsInterface() {
         
         resetCreateForm() {
             this.newMomentContent = '';
-            this.newImageUrl = '';
             this.newMomentImages = [];
             this.newMomentLocation = '';
         },
         
-        addImage() {
-            if (this.newImageUrl.trim() && this.newMomentImages.length < 9) {
-                this.newMomentImages.push(this.newImageUrl.trim());
-                this.newImageUrl = '';
+        async handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (this.newMomentImages.length >= 9) {
+                alert('最多只能添加9张图片');
+                return;
+            }
+            
+            try {
+                const base64 = await window.fileToBase64(file);
+                this.newMomentImages.push(base64);
+                // Clear the input for next selection
+                event.target.value = '';
+            } catch (error) {
+                alert(error.message);
             }
         },
         

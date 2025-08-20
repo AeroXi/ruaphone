@@ -22,15 +22,15 @@ RuaPhone is a lightweight AI chat simulator with a mobile phone interface, built
 - `styles.css`: Complete CSS styling with CSS variables and responsive design
 
 ### Data Management
-- **Database**: Dexie.js manages IndexedDB with tables for chats, messages, apiConfig, worldBooks, and presets
-- **State**: Alpine.js stores handle global state (app, chat, settings, worldBook, presets)
+- **Database**: Dexie.js manages IndexedDB with tables for chats, messages, apiConfig, worldBooks, and personas
+- **State**: Alpine.js stores handle global state (app, chat, settings, worldBook, personas)
 - **Navigation**: Page-based routing using Alpine.js reactive properties
 
 ### Key Alpine.js Stores
 - `Alpine.store('app')`: UI state, navigation, loading states
 - `Alpine.store('chat')`: Chat management, message handling, AI responses
 - `Alpine.store('settings')`: API configuration persistence
-- `Alpine.store('worldBook')` & `Alpine.store('presets')`: Content management
+- `Alpine.store('worldBook')` & `Alpine.store('personas')`: Content management
 
 ## Development Workflow
 
