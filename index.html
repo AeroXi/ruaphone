@@ -274,6 +274,59 @@
                             </div>
                         </template>
                         <button class="button" @click="saveApiConfig()">保存设置</button>
+                        
+                        <!-- Data Management Section -->
+                        <div class="form-section" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #E5E5EA;">
+                            <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #1C1C1E;">数据管理</h3>
+                            
+                            <div class="form-group">
+                                <div class="form-help" style="background: #F2F2F7; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                                    <p style="margin: 0 0 8px 0; font-weight: 500; color: #1C1C1E;">
+                                        <span x-text="$store.app.storageStatus === 'persistent' ? '🔒 数据已持久化' : 
+                                                     $store.app.storageStatus === 'not-persistent' ? '⚠️ 临时存储模式' : 
+                                                     $store.app.storageStatus === 'not-supported' ? '❌ 不支持持久存储' : '🔄 检查中...'"></span>
+                                    </p>
+                                    <p style="margin: 0; font-size: 14px; color: #8E8E93;">
+                                        <span x-show="$store.app.storageStatus === 'persistent'">您的数据已获得持久化保护，不会被自动清理。</span>
+                                        <span x-show="$store.app.storageStatus === 'not-persistent'">建议申请持久化权限并定期备份数据。</span>
+                                        <span x-show="$store.app.storageStatus === 'not-supported'">您的浏览器不支持持久化存储，请定期备份数据。</span>
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <button class="button" style="background: #34C759;" @click="window.exportData && window.exportData()">
+                                    <i class="fas fa-download" style="margin-right: 8px;"></i>
+                                    导出数据
+                                </button>
+                                <button class="button" style="background: #FF9500;" @click="window.importData && window.importData()">
+                                    <i class="fas fa-upload" style="margin-right: 8px;"></i>
+                                    导入数据
+                                </button>
+                            </div>
+                            
+                            <div class="form-group" x-show="$store.app.storageStatus !== 'persistent'">
+                                <button class="button" style="background: #007AFF;" @click="$store.app.requestPersistentStorage().then(granted => {
+                                    if (granted) {
+                                        alert('✅ 已获得持久化存储权限！');
+                                    } else {
+                                        alert('⚠️ 未能获得持久化存储权限。您的数据仍可正常使用，但建议定期备份。');
+                                    }
+                                })">
+                                    <i class="fas fa-shield-alt" style="margin-right: 8px;"></i>
+                                    申请数据持久化
+                                </button>
+                            </div>
+                            
+                            <template x-if="location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.port">
+                                <div class="form-group" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #E5E5EA;">
+                                    <button class="button" style="background: #FF3B30;" @click="window.resetDatabase && window.resetDatabase()">
+                                        <i class="fas fa-trash" style="margin-right: 8px;"></i>
+                                        重置数据库 (开发模式)
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </div>
 

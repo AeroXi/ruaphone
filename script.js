@@ -15,29 +15,348 @@ db.version(5).stores({
     momentsLikes: '&id, momentId, userId, userName, timestamp'
 });
 
-// For development: force upgrade to latest version
+// Database upgrade and error handling
 db.open().catch(function(error) {
     console.error('Database failed to open:', error);
-    // If database schema has changed, delete and recreate
+    
     if (error.name === 'VersionError') {
-        console.log('Database version conflict, recreating...');
-        db.delete().then(() => {
-            console.log('Database recreated');
-            window.location.reload();
-        });
+        // Version conflict detected - show user options instead of auto-delete
+        const upgradeDatabase = () => {
+            if (confirm(
+                '检测到数据库结构已更新，需要升级数据库。\n\n' +
+                '选择"确定"将尝试保留现有数据并升级\n' +
+                '选择"取消"将不进行任何操作\n\n' +
+                '如果升级失败，您可以选择导出数据后重置数据库。'
+            )) {
+                // Try to upgrade gracefully
+                handleDatabaseUpgrade();
+            } else {
+                console.log('Database upgrade cancelled by user');
+                // Show upgrade required message
+                showUpgradeRequiredMessage();
+            }
+        };
+        
+        // Delay the prompt to allow page to load
+        setTimeout(upgradeDatabase, 1000);
     }
 });
 
-// Debug function to reset database
-window.resetDatabase = async function() {
-    try {
-        await db.delete();
-        console.log('Database deleted');
-        window.location.reload();
-    } catch (error) {
-        console.error('Failed to reset database:', error);
+// Database management functions (protected in production)
+if (typeof window !== 'undefined') {
+    // Only expose debug functions in development
+    const isDevelopment = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.port;
+    
+    if (isDevelopment) {
+        window.resetDatabase = async function() {
+            if (confirm('⚠️ 警告: 这将删除所有数据！\n\n确定要重置数据库吗？此操作无法撤销。')) {
+                try {
+                    await db.delete();
+                    console.log('Database deleted');
+                    window.location.reload();
+                } catch (error) {
+                    console.error('Failed to reset database:', error);
+                }
+            }
+        };
+        
+        console.log('Development mode: resetDatabase() function available');
     }
-};
+    
+    // Always available database management functions
+    window.exportData = exportAllData;
+    window.importData = importAllData;
+}
+
+// Database upgrade handling function
+async function handleDatabaseUpgrade() {
+    try {
+        console.log('Attempting database upgrade...');
+        
+        // Try to backup existing data first
+        let backupData = null;
+        try {
+            backupData = await exportAllData(false); // Don't show download
+            console.log('Backup created successfully');
+        } catch (backupError) {
+            console.warn('Could not create backup:', backupError);
+        }
+        
+        // Close the current database connection
+        db.close();
+        
+        // Delete the old database
+        await db.delete();
+        console.log('Old database deleted');
+        
+        // Reinitialize with new structure
+        await db.open();
+        console.log('New database structure created');
+        
+        // Try to restore data if backup was successful
+        if (backupData) {
+            try {
+                await importAllData(backupData, false);
+                console.log('Data restored from backup');
+                alert('✅ 数据库升级成功！数据已恢复。');
+            } catch (restoreError) {
+                console.error('Failed to restore data:', restoreError);
+                alert('⚠️ 数据库已升级，但数据恢复失败。\n\n请检查浏览器控制台的详细错误信息。');
+            }
+        } else {
+            alert('⚠️ 数据库已升级，但无法备份旧数据。\n\n如果您之前有重要数据，请联系技术支持。');
+        }
+        
+        // Reload the page to reinitialize everything
+        window.location.reload();
+        
+    } catch (error) {
+        console.error('Database upgrade failed:', error);
+        alert('❌ 数据库升级失败: ' + error.message + '\n\n请刷新页面重试，或联系技术支持。');
+    }
+}
+
+// Show upgrade required message
+function showUpgradeRequiredMessage() {
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.8);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    `;
+    
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        background: white;
+        padding: 24px;
+        border-radius: 12px;
+        max-width: 400px;
+        text-align: center;
+        margin: 20px;
+    `;
+    
+    dialog.innerHTML = `
+        <h2 style="color: #ff6b35; margin-top: 0;">📱 需要数据库升级</h2>
+        <p>检测到数据库结构已更新，需要升级才能正常使用应用。</p>
+        <div style="margin: 20px 0;">
+            <button onclick="location.reload()" style="
+                background: #007AFF;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 16px;
+                cursor: pointer;
+                margin: 5px;
+            ">重试升级</button>
+            <button onclick="window.exportData && window.exportData()" style="
+                background: #34C759;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 16px;
+                cursor: pointer;
+                margin: 5px;
+            ">导出数据</button>
+        </div>
+        <small style="color: #666;">
+            如果问题持续，可以先导出数据备份，然后刷新页面。
+        </small>
+    `;
+    
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+}
+
+// Data export function
+async function exportAllData(showDownload = true) {
+    try {
+        console.log('Exporting all data...');
+        
+        const exportData = {
+            exportVersion: '1.0',
+            exportDate: new Date().toISOString(),
+            appVersion: 5, // Current database version
+            data: {}
+        };
+        
+        // Export all table data
+        const tables = ['chats', 'messages', 'apiConfig', 'worldBooks', 'presets', 'personas', 'globalSettings', 'moments', 'momentsComments', 'momentsLikes'];
+        
+        for (const tableName of tables) {
+            try {
+                const tableData = await db[tableName].toArray();
+                exportData.data[tableName] = tableData;
+                console.log(`Exported ${tableName}: ${tableData.length} records`);
+            } catch (error) {
+                console.warn(`Failed to export ${tableName}:`, error);
+                exportData.data[tableName] = [];
+            }
+        }
+        
+        // Create downloadable file if requested
+        if (showDownload) {
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `ruaphone-backup-${new Date().toISOString().split('T')[0]}.json`;
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up object URL
+            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+            
+            console.log('Data exported and download triggered');
+        }
+        
+        return exportData;
+        
+    } catch (error) {
+        console.error('Export failed:', error);
+        if (showDownload) {
+            alert('导出失败: ' + error.message);
+        }
+        throw error;
+    }
+}
+
+// Data import function
+async function importAllData(importData = null, showFileInput = true) {
+    try {
+        let dataToImport = importData;
+        
+        // If no data provided and file input requested, show file selector
+        if (!dataToImport && showFileInput) {
+            dataToImport = await new Promise((resolve, reject) => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                
+                input.onchange = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) {
+                        reject(new Error('No file selected'));
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = JSON.parse(e.target.result);
+                            resolve(data);
+                        } catch (error) {
+                            reject(new Error('Invalid JSON file: ' + error.message));
+                        }
+                    };
+                    reader.onerror = () => reject(new Error('Failed to read file'));
+                    reader.readAsText(file);
+                };
+                
+                input.click();
+            });
+        }
+        
+        if (!dataToImport) {
+            throw new Error('No data to import');
+        }
+        
+        // Validate import data structure
+        if (!dataToImport.exportVersion || !dataToImport.data) {
+            throw new Error('Invalid backup file format');
+        }
+        
+        console.log('Starting data import...');
+        console.log('Export version:', dataToImport.exportVersion);
+        console.log('Export date:', dataToImport.exportDate);
+        console.log('App version:', dataToImport.appVersion);
+        
+        // Confirm import with user if showing UI
+        if (showFileInput) {
+            const confirmImport = confirm(
+                `📥 导入数据确认\n\n` +
+                `备份日期: ${dataToImport.exportDate ? new Date(dataToImport.exportDate).toLocaleString('zh-CN') : '未知'}\n` +
+                `数据版本: ${dataToImport.appVersion || '未知'}\n\n` +
+                `⚠️ 警告: 导入将覆盖所有现有数据！\n\n` +
+                `确定要继续导入吗？此操作无法撤销。`
+            );
+            
+            if (!confirmImport) {
+                console.log('Import cancelled by user');
+                return false;
+            }
+        }
+        
+        // Clear existing data and import new data
+        const tables = ['chats', 'messages', 'apiConfig', 'worldBooks', 'presets', 'personas', 'globalSettings', 'moments', 'momentsComments', 'momentsLikes'];
+        
+        for (const tableName of tables) {
+            try {
+                // Clear existing data
+                await db[tableName].clear();
+                
+                // Import new data if available
+                const tableData = dataToImport.data[tableName] || [];
+                if (tableData.length > 0) {
+                    await db[tableName].bulkAdd(tableData);
+                }
+                
+                console.log(`Imported ${tableName}: ${tableData.length} records`);
+            } catch (error) {
+                console.warn(`Failed to import ${tableName}:`, error);
+                // Continue with other tables even if one fails
+            }
+        }
+        
+        // Reload all Alpine stores
+        setTimeout(async () => {
+            try {
+                await Alpine.store('app').loadGlobalSettings();
+                await Alpine.store('chat').loadChats();
+                await Alpine.store('settings').loadConfig();
+                await Alpine.store('worldBook').loadBooks();
+                await Alpine.store('presets').loadPresets();
+                await Alpine.store('personas').loadPersonas();
+                await Alpine.store('moments').loadMoments();
+                
+                console.log('All stores reloaded after import');
+                
+                if (showFileInput) {
+                    alert('✅ 数据导入成功！页面将刷新以应用更改。');
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('Failed to reload stores after import:', error);
+                if (showFileInput) {
+                    alert('⚠️ 数据导入完成，但页面状态更新失败。请刷新页面。');
+                }
+            }
+        }, 500);
+        
+        return true;
+        
+    } catch (error) {
+        console.error('Import failed:', error);
+        if (showFileInput) {
+            alert('导入失败: ' + error.message);
+        }
+        throw error;
+    }
+}
 
 // Default prompt templates
 const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色。
@@ -95,6 +414,7 @@ document.addEventListener('alpine:init', () => {
         currentChatId: null,
         isLoading: false,
         isPWA: false,
+        storageStatus: 'unknown', // persistent, not-persistent, unknown
         
         // Global Settings
         globalSettings: {
@@ -150,6 +470,64 @@ document.addEventListener('alpine:init', () => {
             }
             
             return this.isPWA;
+        },
+        
+        // Storage persistence management
+        async checkStorageStatus() {
+            if (!navigator.storage || !navigator.storage.persisted) {
+                this.storageStatus = 'not-supported';
+                return 'not-supported';
+            }
+            
+            try {
+                const isPersistent = await navigator.storage.persisted();
+                this.storageStatus = isPersistent ? 'persistent' : 'not-persistent';
+                return this.storageStatus;
+            } catch (error) {
+                console.error('Failed to check storage status:', error);
+                this.storageStatus = 'unknown';
+                return 'unknown';
+            }
+        },
+        
+        async requestPersistentStorage() {
+            if (!navigator.storage || !navigator.storage.persist) {
+                return false;
+            }
+            
+            try {
+                const granted = await navigator.storage.persist();
+                await this.checkStorageStatus(); // Update status
+                return granted;
+            } catch (error) {
+                console.error('Failed to request persistent storage:', error);
+                return false;
+            }
+        },
+        
+        async showStoragePrompt() {
+            const status = await this.checkStorageStatus();
+            
+            if (status === 'not-persistent' || status === 'unknown') {
+                const shouldRequest = confirm(
+                    '🔒 数据持久化设置\n\n' +
+                    '当前您的数据可能会被浏览器自动清理。\n' +
+                    '是否申请持久化存储权限以保护您的数据？\n\n' +
+                    '选择"确定"将向浏览器申请权限\n' +
+                    '选择"取消"将继续使用临时存储'
+                );
+                
+                if (shouldRequest) {
+                    const granted = await this.requestPersistentStorage();
+                    if (granted) {
+                        alert('✅ 已获得持久化存储权限，您的数据将得到更好保护！');
+                    } else {
+                        alert('⚠️ 未能获得持久化存储权限。\n\n您的数据仍可正常使用，但可能在存储空间不足时被清理。\n\n建议定期导出数据备份。');
+                    }
+                }
+            }
+            
+            return status;
         }
     });
 
@@ -827,6 +1205,11 @@ function phoneApp() {
             
             // Detect PWA mode
             Alpine.store('app').detectPWA();
+            
+            // Check storage persistence and prompt if needed
+            setTimeout(async () => {
+                await Alpine.store('app').showStoragePrompt();
+            }, 2000); // Delay 2 seconds to let app fully load
             
             // Update time every second
             setInterval(() => {
