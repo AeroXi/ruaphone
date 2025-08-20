@@ -556,14 +556,17 @@ body {
     background: var(--primary-color);
     color: white;
     border: none;
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
+    border-radius: 20px;
+    min-width: 60px;
+    height: 40px;
+    padding: 0 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
+    font-weight: 600;
+    flex-shrink: 0;
 }
 
 .send-button:hover:not(:disabled) {
@@ -581,15 +584,15 @@ body {
     background: #f0f0f0;
     border: none;
     border-radius: 50%;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
     font-size: 16px;
-    margin-left: 8px;
+    flex-shrink: 0;
 }
 
 .ai-button:hover:not(:disabled) {
@@ -1339,4 +1342,57 @@ body {
     justify-content: center;
     width: 100%;
     height: 100%;
+}
+
+/* Responsive Chat Input Styles */
+@media (max-width: 400px) {
+    .chat-input {
+        padding: 12px 16px;
+    }
+    
+    .input-container {
+        gap: 8px;
+        padding: 6px 12px;
+    }
+    
+    .send-button {
+        min-width: 50px;
+        height: 36px;
+        padding: 0 12px;
+    }
+    
+    .ai-button {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 350px) {
+    .chat-input {
+        padding: 10px 12px;
+    }
+    
+    .input-container {
+        gap: 6px;
+        padding: 4px 8px;
+    }
+    
+    .send-button {
+        min-width: 45px;
+        height: 32px;
+        padding: 0 10px;
+        font-size: 14px;
+    }
+    
+    .ai-button {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+    
+    .message-input {
+        font-size: 14px;
+        padding: 6px 0;
+    }
 }
