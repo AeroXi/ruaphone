@@ -266,25 +266,48 @@ document.addEventListener('alpine:init', () => {
                 let response;
                 
                 if (isGemini) {
-                    // Gemini API format
-                    const contents = messagesPayload
-                        .filter(msg => msg.role !== 'system')
-                        .map(msg => ({
-                            role: msg.role === 'assistant' ? 'model' : 'user',
-                            parts: [{ text: msg.content }]
-                        }));
+                    // Gemini API format - convert OpenAI format to Gemini format
+                    const contents = [];
                     
-                    // Add system prompt as first user message for Gemini
-                    contents.unshift({
-                        role: 'user',
-                        parts: [{ text: systemPrompt }]
-                    });
+                    // Process messages and convert to Gemini format
+                    for (let i = 0; i < messagesPayload.length; i++) {
+                        const msg = messagesPayload[i];
+                        
+                        if (msg.role === 'system') {
+                            // For Gemini, system messages are added as user messages with specific instructions
+                            contents.push({
+                                role: 'user',
+                                parts: [{ text: `System instructions: ${msg.content}` }]
+                            });
+                        } else if (msg.role === 'user') {
+                            contents.push({
+                                role: 'user',
+                                parts: [{ text: msg.content }]
+                            });
+                        } else if (msg.role === 'assistant') {
+                            contents.push({
+                                role: 'model',
+                                parts: [{ text: msg.content }]
+                            });
+                        }
+                    }
+                    
+                    // Ensure conversation starts with user message for Gemini
+                    if (contents.length === 0 || contents[0].role !== 'user') {
+                        contents.unshift({
+                            role: 'user',
+                            parts: [{ text: systemPrompt }]
+                        });
+                    }
                     
                     const apiKey = Alpine.store('settings').getRandomApiKey(apiConfig.apiKey);
-                    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${apiConfig.model}:generateContent?key=${apiKey}`, {
+                    const model = apiConfig.model || 'gemini-1.5-flash';
+                    
+                    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json'
+                            'Content-Type': 'application/json',
+                            'x-goog-api-key': apiKey
                         },
                         body: JSON.stringify({
                             contents: contents,
@@ -292,14 +315,38 @@ document.addEventListener('alpine:init', () => {
                                 temperature: 0.8,
                                 topK: 40,
                                 topP: 0.95,
-                                candidateCount: 1,
-                                stopSequences: []
-                            }
+                                maxOutputTokens: 2048,
+                                candidateCount: 1
+                            },
+                            safetySettings: [
+                                {
+                                    category: "HARM_CATEGORY_HARASSMENT",
+                                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                                },
+                                {
+                                    category: "HARM_CATEGORY_HATE_SPEECH", 
+                                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                                },
+                                {
+                                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                                },
+                                {
+                                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                                }
+                            ]
                         })
                     });
                     
                     if (!response.ok) {
-                        const errorData = await response.json();
+                        const errorText = await response.text();
+                        let errorData;
+                        try {
+                            errorData = JSON.parse(errorText);
+                        } catch {
+                            errorData = { error: { message: errorText } };
+                        }
                         throw new Error(`Gemini API Error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
                     }
                     
@@ -307,7 +354,7 @@ document.addEventListener('alpine:init', () => {
                     const aiResponseContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
                     
                     if (!aiResponseContent) {
-                        throw new Error('Invalid response format from Gemini API');
+                        throw new Error('Invalid response format from Gemini API: ' + JSON.stringify(data));
                     }
                     
                     await this.parseAndSaveAIResponse(chatId, aiResponseContent, chat.type === 'group');
@@ -532,6 +579,20 @@ document.addEventListener('alpine:init', () => {
                 id: 'main', 
                 ...this.apiConfig 
             });
+        },
+        
+        // Update default model when API type changes
+        updateApiType(newType) {
+            this.apiConfig.apiType = newType;
+            if (newType === 'gemini') {
+                this.apiConfig.model = 'gemini-1.5-flash';
+                this.apiConfig.baseURL = ''; // Gemini doesn't need base URL
+            } else {
+                this.apiConfig.model = 'gpt-3.5-turbo';
+                if (!this.apiConfig.baseURL) {
+                    this.apiConfig.baseURL = 'https://api.openai.com';
+                }
+            }
         }
     });
 

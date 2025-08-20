@@ -229,7 +229,8 @@
                     <div class="content">
                         <div class="form-group">
                             <label class="form-label">API类型</label>
-                            <select class="form-input" x-model="$store.settings.apiConfig.apiType">
+                            <select class="form-input" x-model="$store.settings.apiConfig.apiType" 
+                                @change="$store.settings.updateApiType($event.target.value)">
                                 <option value="openai">OpenAI</option>
                                 <option value="gemini">Google Gemini</option>
                             </select>
@@ -248,9 +249,30 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">模型</label>
-                            <input type="text" class="form-input" x-model="$store.settings.apiConfig.model" 
-                                :placeholder="$store.settings.apiConfig.apiType === 'gemini' ? 'gemini-1.5-flash' : 'gpt-3.5-turbo'">
+                            <template x-if="$store.settings.apiConfig.apiType === 'gemini'">
+                                <select class="form-input" x-model="$store.settings.apiConfig.model">
+                                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                                    <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (实验版)</option>
+                                    <option value="gemini-exp-1206">Gemini Experimental 1206</option>
+                                </select>
+                            </template>
+                            <template x-if="$store.settings.apiConfig.apiType !== 'gemini'">
+                                <input type="text" class="form-input" x-model="$store.settings.apiConfig.model" 
+                                    placeholder="gpt-3.5-turbo">
+                            </template>
                         </div>
+                        
+                        <template x-if="$store.settings.apiConfig.apiType === 'gemini'">
+                            <div class="form-group">
+                                <div class="form-help" style="background: #e8f4fd; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                                    <p style="margin: 0 0 8px 0; font-weight: 500;">📋 使用说明：</p>
+                                    <p style="margin: 0 0 4px 0;">1. 访问 <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #1976d2;">Google AI Studio</a> 获取免费API密钥</p>
+                                    <p style="margin: 0 0 4px 0;">2. API密钥格式：AIza开头的字符串</p>
+                                    <p style="margin: 0;">3. 推荐使用Gemini 1.5 Flash（速度快，免费额度高）</p>
+                                </div>
+                            </div>
+                        </template>
                         <button class="button" @click="saveApiConfig()">保存设置</button>
                     </div>
                 </div>
