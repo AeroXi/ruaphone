@@ -996,6 +996,12 @@ document.addEventListener('alpine:init', () => {
             apiType: 'openai'
         },
         
+        // Model list management
+        availableModels: [],
+        modelsLoading: false,
+        modelsError: null,
+        modelsLastFetch: null,
+        
         // Helper function for multi-key API support
         getRandomApiKey(keyString) {
             if (keyString && keyString.includes(',')) {
@@ -1025,12 +1031,129 @@ document.addEventListener('alpine:init', () => {
             if (newType === 'gemini') {
                 this.apiConfig.model = 'gemini-1.5-flash';
                 this.apiConfig.baseURL = ''; // Gemini doesn't need base URL
+                // Clear OpenAI models when switching to Gemini
+                this.availableModels = [];
             } else {
                 this.apiConfig.model = 'gpt-3.5-turbo';
                 if (!this.apiConfig.baseURL) {
                     this.apiConfig.baseURL = 'https://api.openai.com';
                 }
+                // Auto-fetch models for OpenAI-compatible APIs
+                this.fetchAvailableModels();
             }
+        },
+        
+        // Fetch available models from API
+        async fetchAvailableModels() {
+            // Only fetch for OpenAI-compatible APIs
+            if (this.apiConfig.apiType === 'gemini') {
+                this.availableModels = [];
+                return;
+            }
+            
+            // Check if we need to fetch (cache for 5 minutes)
+            const now = Date.now();
+            const cacheTime = 5 * 60 * 1000; // 5 minutes
+            if (this.modelsLastFetch && (now - this.modelsLastFetch) < cacheTime && this.availableModels.length > 0) {
+                console.log('Using cached models');
+                return this.availableModels;
+            }
+            
+            if (!this.apiConfig.baseURL || !this.apiConfig.apiKey) {
+                console.log('Cannot fetch models: missing baseURL or apiKey');
+                this.modelsError = '请先配置 API 地址和密钥';
+                return [];
+            }
+            
+            this.modelsLoading = true;
+            this.modelsError = null;
+            
+            try {
+                console.log('Fetching available models...');
+                
+                const apiKey = this.getRandomApiKey(this.apiConfig.apiKey);
+                const modelsURL = buildApiURL(this.apiConfig.baseURL, '/models');
+                
+                const response = await fetch(modelsURL, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errorMessage = `HTTP ${response.status}`;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.error?.message || errorMessage;
+                    } catch {
+                        // Use HTTP status if can't parse error
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                const data = await response.json();
+                console.log('Models API response:', data);
+                
+                if (!data.data || !Array.isArray(data.data)) {
+                    throw new Error('Invalid models API response format');
+                }
+                
+                // Extract and sort models
+                const models = data.data
+                    .filter(model => model.id) // Only models with valid IDs
+                    .map(model => ({
+                        id: model.id,
+                        name: model.id, // Use ID as display name
+                        owned_by: model.owned_by || 'unknown',
+                        created: model.created || 0
+                    }))
+                    .sort((a, b) => a.id.localeCompare(b.id)); // Sort alphabetically
+                
+                this.availableModels = models;
+                this.modelsLastFetch = now;
+                this.modelsError = null;
+                
+                console.log(`Fetched ${models.length} models:`, models.map(m => m.id));
+                
+                // If current model is not in the list, set to first available model
+                if (models.length > 0 && !models.some(m => m.id === this.apiConfig.model)) {
+                    console.log(`Current model '${this.apiConfig.model}' not found, switching to '${models[0].id}'`);
+                    this.apiConfig.model = models[0].id;
+                }
+                
+                return models;
+                
+            } catch (error) {
+                console.error('Failed to fetch models:', error);
+                this.modelsError = error.message;
+                
+                // Fallback to default models if fetch fails
+                this.availableModels = this.getDefaultModels();
+                
+                return this.availableModels;
+            } finally {
+                this.modelsLoading = false;
+            }
+        },
+        
+        // Get default models as fallback
+        getDefaultModels() {
+            return [
+                { id: 'gpt-4', name: 'gpt-4', owned_by: 'openai' },
+                { id: 'gpt-4-turbo', name: 'gpt-4-turbo', owned_by: 'openai' },
+                { id: 'gpt-4o', name: 'gpt-4o', owned_by: 'openai' },
+                { id: 'gpt-4o-mini', name: 'gpt-4o-mini', owned_by: 'openai' },
+                { id: 'gpt-3.5-turbo', name: 'gpt-3.5-turbo', owned_by: 'openai' }
+            ].sort((a, b) => a.id.localeCompare(b.id));
+        },
+        
+        // Refresh models (force fetch)
+        async refreshModels() {
+            this.modelsLastFetch = null; // Clear cache
+            return await this.fetchAvailableModels();
         }
     });
 
@@ -1292,6 +1415,13 @@ function phoneApp() {
                 await Alpine.store('presets').loadPresets();
                 await Alpine.store('personas').loadPersonas();
                 await Alpine.store('moments').loadMoments();
+                
+                // Auto-fetch models for OpenAI-compatible APIs after loading config
+                setTimeout(() => {
+                    if (Alpine.store('settings').apiConfig.apiType !== 'gemini') {
+                        Alpine.store('settings').fetchAvailableModels();
+                    }
+                }, 1000); // Delay to let UI load
             } catch (error) {
                 console.error('Failed to load data:', error);
             }
@@ -1367,6 +1497,12 @@ function phoneApp() {
         async saveApiConfig() {
             try {
                 await Alpine.store('settings').saveConfig();
+                
+                // Auto-fetch models after saving config for OpenAI-compatible APIs
+                if (Alpine.store('settings').apiConfig.apiType !== 'gemini') {
+                    Alpine.store('settings').refreshModels();
+                }
+                
                 alert('API设置已保存');
             } catch (error) {
                 console.error('Failed to save API config:', error);

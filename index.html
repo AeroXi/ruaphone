@@ -252,6 +252,8 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">模型</label>
+                            
+                            <!-- Gemini Models -->
                             <template x-if="$store.settings.apiConfig.apiType === 'gemini'">
                                 <select class="form-input" x-model="$store.settings.apiConfig.model">
                                     <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
@@ -260,9 +262,57 @@
                                     <option value="gemini-exp-1206">Gemini Experimental 1206</option>
                                 </select>
                             </template>
+                            
+                            <!-- OpenAI-compatible Models -->
                             <template x-if="$store.settings.apiConfig.apiType !== 'gemini'">
-                                <input type="text" class="form-input" x-model="$store.settings.apiConfig.model" 
-                                    placeholder="gpt-3.5-turbo">
+                                <div>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <select class="form-input" x-model="$store.settings.apiConfig.model" style="flex: 1;">
+                                            <option value="" disabled>
+                                                <span x-show="$store.settings.modelsLoading">正在加载模型...</span>
+                                                <span x-show="!$store.settings.modelsLoading && $store.settings.availableModels.length === 0">请先配置API地址和密钥</span>
+                                            </option>
+                                            <template x-for="model in $store.settings.availableModels" :key="model.id">
+                                                <option :value="model.id" x-text="model.id"></option>
+                                            </template>
+                                        </select>
+                                        <button type="button" 
+                                            class="button" 
+                                            style="padding: 8px 12px; font-size: 14px; background: #007AFF;" 
+                                            @click="$store.settings.refreshModels()"
+                                            :disabled="$store.settings.modelsLoading"
+                                            :class="{ 'opacity-50 cursor-not-allowed': $store.settings.modelsLoading }">
+                                            <i class="fas fa-sync-alt" :class="{ 'fa-spin': $store.settings.modelsLoading }"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Loading indicator -->
+                                    <div x-show="$store.settings.modelsLoading" 
+                                        class="form-help" 
+                                        style="color: #007AFF; margin-top: 8px;">
+                                        <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
+                                        正在从 API 获取模型列表...
+                                    </div>
+                                    
+                                    <!-- Error message -->
+                                    <div x-show="$store.settings.modelsError" 
+                                        class="form-help" 
+                                        style="color: #FF3B30; margin-top: 8px;">
+                                        <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
+                                        <span x-text="$store.settings.modelsError"></span>
+                                    </div>
+                                    
+                                    <!-- Success message -->
+                                    <div x-show="!$store.settings.modelsError && !$store.settings.modelsLoading && $store.settings.availableModels.length > 0" 
+                                        class="form-help" 
+                                        style="color: #34C759; margin-top: 8px;">
+                                        <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
+                                        已加载 <span x-text="$store.settings.availableModels.length"></span> 个模型
+                                        <span x-show="$store.settings.modelsLastFetch">
+                                            (缓存 5 分钟)
+                                        </span>
+                                    </div>
+                                </div>
                             </template>
                         </div>
                         
