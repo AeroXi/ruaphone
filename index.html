@@ -100,7 +100,7 @@
                         </button>
                         <div class="header-title">聊天</div>
                         <div class="header-actions">
-                            <button class="header-button" @click="$dispatch('open-create-chat')" title="单聊">
+                            <button class="header-button" @click="$dispatch('open-create-chat')" title="私聊">
                                 <i class="fas fa-user"></i>
                             </button>
                             <button class="header-button" @click="createNewGroupChat()" title="群聊">
@@ -130,7 +130,7 @@
                         <div x-show="$store.chat.chats.length === 0" class="text-center p-4">
                             <p class="text-secondary">暂无聊天记录</p>
                             <div class="button-group mt-4">
-                                <button class="button" @click="createNewChat()">创建单聊</button>
+                                <button class="button" @click="$dispatch('open-create-chat')">创建私聊</button>
                                 <button class="button" @click="createNewGroupChat()">创建群聊</button>
                             </div>
                         </div>
@@ -636,7 +636,7 @@
             <div class="modal-overlay" @click="showCreateChatModal = false"></div>
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>创建新聊天</h3>
+                    <h3>创建私聊</h3>
                     <button class="close-button" @click="showCreateChatModal = false">
                         <i class="fas fa-times"></i>
                     </button>
