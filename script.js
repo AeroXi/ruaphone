@@ -572,24 +572,20 @@ document.addEventListener('alpine:init', () => {
         },
         
         async showStoragePrompt() {
+            // Silent storage permission handling - no user prompts
             const status = await this.checkStorageStatus();
             
             if (status === 'not-persistent' || status === 'unknown') {
-                const shouldRequest = confirm(
-                    '🔒 数据持久化设置\n\n' +
-                    '当前您的数据可能会被浏览器自动清理。\n' +
-                    '是否申请持久化存储权限以保护您的数据？\n\n' +
-                    '选择"确定"将向浏览器申请权限\n' +
-                    '选择"取消"将继续使用临时存储'
-                );
-                
-                if (shouldRequest) {
+                // Silently try to request persistent storage without user prompt
+                try {
                     const granted = await this.requestPersistentStorage();
                     if (granted) {
-                        alert('✅ 已获得持久化存储权限，您的数据将得到更好保护！');
+                        console.log('✅ Persistent storage granted silently');
                     } else {
-                        alert('⚠️ 未能获得持久化存储权限。\n\n您的数据仍可正常使用，但可能在存储空间不足时被清理。\n\n建议定期导出数据备份。');
+                        console.log('⚠️ Persistent storage not granted, using temporary storage');
                     }
+                } catch (error) {
+                    console.log('Failed to request persistent storage:', error);
                 }
             }
             
@@ -1389,10 +1385,10 @@ function phoneApp() {
             // Detect PWA mode
             Alpine.store('app').detectPWA();
             
-            // Check storage persistence and prompt if needed
+            // Check storage persistence silently
             setTimeout(async () => {
                 await Alpine.store('app').showStoragePrompt();
-            }, 2000); // Delay 2 seconds to let app fully load
+            }, 1000); // Reduced delay for silent handling
             
             // Update time every second
             setInterval(() => {
