@@ -675,6 +675,9 @@ document.addEventListener('alpine:init', () => {
         },
         
         async loadMessages(chatId) {
+            // 先清空避免串扰
+            this.currentMessages = [];
+            
             this.currentMessages = await db.messages
                 .where('chatId')
                 .equals(chatId)
@@ -1538,12 +1541,14 @@ function phoneApp() {
             if (groupName && groupName.trim()) {
                 const chatId = await Alpine.store('chat').createChat(groupName.trim(), 'group');
                 if (chatId) {
+                    Alpine.store('chat').currentMessages = []; // 清空当前消息避免串扰
                     this.navigateTo('chat', { chatId });
                 }
             }
         },
 
         async openChat(chatId) {
+            Alpine.store('chat').currentMessages = []; // 先清空避免串扰
             await Alpine.store('chat').loadMessages(chatId);
             this.navigateTo('chat', { chatId });
         },

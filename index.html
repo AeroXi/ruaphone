@@ -150,9 +150,7 @@
                             <div class="chat-header-avatar">
                                 <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
                                      :src="currentChat?.avatar" 
-                                     :alt="currentChat?.name"
-                                     @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
-                                <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'" class="fallback-avatar">🤖</span>
+                                     :alt="currentChat?.name">
                             </div>
                             <div class="header-title" x-text="currentChat?.name || '聊天'"></div>
                         </div>
@@ -759,6 +757,7 @@
                             return; 
                         }
                         $store.chat.createChat(selectedPersona.name, 'single', selectedPersona.persona, selectedPersona.id, selectedPersona.avatar).then(chatId => {
+                            $store.chat.currentMessages = []; // 清空当前消息避免串扰
                             $store.app.navigateTo('chat', { chatId });
                             showCreateChatModal = false;
                         });
@@ -868,7 +867,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=1.3.1"></script>
+    <script src="script.js?v=1.3.3"></script>
     <script src="version-update.js?v=1.3.1"></script>
 </body>
 </html>
