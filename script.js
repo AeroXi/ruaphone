@@ -529,6 +529,96 @@ const DEFAULT_PROMPT_GROUP = `你是一个群聊的组织者和AI驱动器。你
 
 现在，请根据以上规则和下面的对话历史，继续这场群聊。`;
 
+// PromptBuilder - 统一管理 Prompt 构建的模块
+class PromptBuilder {
+    constructor() {
+        this.debugMode = false;
+        this.templates = {
+            single: DEFAULT_PROMPT_SINGLE,
+            group: DEFAULT_PROMPT_GROUP
+        };
+    }
+    
+    // 设置调试模式
+    setDebugMode(enabled) {
+        this.debugMode = enabled;
+    }
+    
+    // 构建用户个人资料上下文
+    buildUserProfileContext() {
+        const profile = Alpine.store('profile').profile;
+        if (!profile.name && !profile.gender && !profile.age && !profile.bio) {
+            return '';
+        }
+        
+        let profileContext = '\n\n# 用户个人资料';
+        if (profile.name) profileContext += `\n- **姓名**: ${profile.name}`;
+        if (profile.gender) profileContext += `\n- **性别**: ${profile.gender}`;
+        if (profile.age) profileContext += `\n- **年龄**: ${profile.age}`;
+        if (profile.bio) profileContext += `\n- **个人简介**: ${profile.bio}`;
+        
+        return profileContext;
+    }
+    
+    // 构建系统 prompt
+    async buildSystemPrompt(chatType, chatData, context = {}) {
+        let template = this.templates[chatType];
+        let systemPrompt;
+        
+        if (chatType === 'group') {
+            const membersList = (chatData.members || []).map(m => `- **${m.name}**: ${m.persona}`).join('\n');
+            const myNickname = chatData.myNickname || '我';
+            
+            systemPrompt = template
+                .replace('{currentTime}', context.currentTime)
+                .replace('{myNickname}', myNickname)
+                .replace('{membersList}', membersList);
+        } else {
+            const userProfileContext = this.buildUserProfileContext();
+            
+            systemPrompt = template
+                .replace('{chat.name}', chatData.name)
+                .replace('{currentTime}', context.currentTime)
+                .replace('{myAddress}', context.myAddress || '未知城市')
+                .replace('{worldBookContent}', context.worldBookContent || '')
+                .replace('{char.persona}', chatData.persona || '友好的AI助手')
+                .replace('{user.persona}', context.userPersona || '普通用户');
+            
+            // 在私聊中添加用户个人资料
+            systemPrompt += userProfileContext;
+        }
+        
+        // 调试输出
+        if (this.debugMode) {
+            this.debugOutput('系统 Prompt', systemPrompt);
+        }
+        
+        return systemPrompt;
+    }
+    
+    // 调试输出
+    debugOutput(title, content) {
+        console.group(`🔧 PromptBuilder Debug: ${title}`);
+        console.log(content);
+        console.groupEnd();
+    }
+    
+    // 输出完整的消息载荷用于调试
+    debugMessagesPayload(messagesPayload) {
+        if (this.debugMode) {
+            console.group('🔧 PromptBuilder Debug: 完整消息载荷');
+            console.log('消息数量:', messagesPayload.length);
+            messagesPayload.forEach((msg, index) => {
+                console.log(`[${index}] ${msg.role}:`, msg.content);
+            });
+            console.groupEnd();
+        }
+    }
+}
+
+// 全局 PromptBuilder 实例
+window.promptBuilder = new PromptBuilder();
+
 // Alpine.js Store for global state
 document.addEventListener('alpine:init', () => {
     Alpine.store('app', {
@@ -544,7 +634,8 @@ document.addEventListener('alpine:init', () => {
             activePresetId: null,
             myAddress: '未知城市',
             myPersona: '普通用户',
-            maxMemory: 20
+            maxMemory: 20,
+            debugPrompt: false
         },
         
         // Initialize global settings
@@ -706,6 +797,9 @@ document.addEventListener('alpine:init', () => {
             const apiConfig = Alpine.store('settings').apiConfig;
             const globalSettings = Alpine.store('app').globalSettings;
             
+            // 根据全局设置启用调试模式
+            window.promptBuilder.setDebugMode(globalSettings.debugPrompt);
+            
             if (!apiConfig.apiKey || !apiConfig.baseURL) {
                 const errorMessage = {
                     id: Date.now().toString(),
@@ -730,27 +824,19 @@ document.addEventListener('alpine:init', () => {
                 const allMessages = await db.messages.where('chatId').equals(chatId).toArray();
                 const recentMessages = allMessages.slice(-maxMemory);
                 
-                // Construct system prompt
+                // 使用 PromptBuilder 构建系统 prompt
                 const currentTime = new Date().toLocaleString('zh-CN');
                 const worldBookContent = await this.getWorldBookContent();
                 
-                let systemPrompt;
-                if (chat.type === 'group') {
-                    const membersList = (chat.members || []).map(m => `- **${m.name}**: ${m.persona}`).join('\n');
-                    const myNickname = chat.myNickname || '我';
-                    systemPrompt = DEFAULT_PROMPT_GROUP
-                        .replace('{currentTime}', currentTime)
-                        .replace('{myNickname}', myNickname)
-                        .replace('{membersList}', membersList);
-                } else {
-                    systemPrompt = DEFAULT_PROMPT_SINGLE
-                        .replace('{chat.name}', chat.name)
-                        .replace('{currentTime}', currentTime)
-                        .replace('{myAddress}', globalSettings.myAddress || '未知城市')
-                        .replace('{worldBookContent}', worldBookContent)
-                        .replace('{char.persona}', chat.persona || '友好的AI助手')
-                        .replace('{user.persona}', globalSettings.myPersona || '普通用户');
-                }
+                const context = {
+                    currentTime: currentTime,
+                    myAddress: globalSettings.myAddress,
+                    worldBookContent: worldBookContent,
+                    userPersona: globalSettings.myPersona
+                };
+                
+                const chatType = chat.type === 'group' ? 'group' : 'single';
+                const systemPrompt = await window.promptBuilder.buildSystemPrompt(chatType, chat, context);
                 
                 // Convert messages to API format
                 const messagesPayload = [
@@ -760,6 +846,9 @@ document.addEventListener('alpine:init', () => {
                         content: msg.content
                     }))
                 ];
+                
+                // 调试输出完整的消息载荷
+                window.promptBuilder.debugMessagesPayload(messagesPayload);
                 
                 // Make API call
                 const isGemini = apiConfig.apiType === 'gemini';
