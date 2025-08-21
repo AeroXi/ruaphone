@@ -1,8 +1,8 @@
 // Initialize Database
 const db = new Dexie('RuaPhoneDB');
 
-// Define all tables in version 4 to avoid upgrade issues
-db.version(5).stores({
+// Define all tables in version 6 to avoid upgrade issues
+db.version(6).stores({
     chats: '&id, name, type, personaId, created',
     messages: '&id, chatId, timestamp, role',
     apiConfig: '&id',
@@ -11,7 +11,8 @@ db.version(5).stores({
     globalSettings: '&id',
     moments: '&id, userId, userName, timestamp, content',
     momentsComments: '&id, momentId, userId, userName, timestamp',
-    momentsLikes: '&id, momentId, userId, userName, timestamp'
+    momentsLikes: '&id, momentId, userId, userName, timestamp',
+    userProfile: '&id, avatar, name, gender, age, bio, updated'
 });
 
 // Database upgrade and error handling
@@ -386,6 +387,7 @@ async function importAllData(importData = null, showFileInput = true) {
                 await Alpine.store('settings').loadConfig();
                 await Alpine.store('worldBook').loadBooks();
                 await Alpine.store('personas').loadPersonas();
+                await Alpine.store('profile').loadProfile();
                 await Alpine.store('moments').loadMoments();
                 
                 console.log('All stores reloaded after import');
@@ -1262,6 +1264,63 @@ document.addEventListener('alpine:init', () => {
         }
     });
 
+    Alpine.store('profile', {
+        profile: {
+            id: 'user_profile',
+            avatar: '',
+            name: '',
+            gender: '',
+            age: '',
+            bio: ''
+        },
+        
+        async loadProfile() {
+            try {
+                const savedProfile = await db.userProfile.get('user_profile');
+                if (savedProfile) {
+                    this.profile = savedProfile;
+                } else {
+                    // Create default profile
+                    await this.saveProfile();
+                }
+            } catch (error) {
+                console.error('Failed to load profile:', error);
+            }
+        },
+        
+        async saveProfile() {
+            try {
+                this.profile.updated = Date.now();
+                // Convert to plain object to avoid DataCloneError
+                const profileData = {
+                    id: this.profile.id,
+                    avatar: this.profile.avatar,
+                    name: this.profile.name,
+                    gender: this.profile.gender,
+                    age: this.profile.age,
+                    bio: this.profile.bio,
+                    updated: this.profile.updated
+                };
+                await db.userProfile.put(profileData);
+                return true;
+            } catch (error) {
+                console.error('Failed to save profile:', error);
+                return false;
+            }
+        },
+        
+        async updateAvatar(file) {
+            try {
+                const compressedImage = await window.compressImage(file);
+                this.profile.avatar = compressedImage;
+                return true;
+            } catch (error) {
+                console.error('Failed to update avatar:', error);
+                return false;
+            }
+        }
+    });
+
     Alpine.store('moments', {
         moments: [],
         comments: [],
@@ -1414,11 +1473,15 @@ function phoneApp() {
         // Load all data from stores
         async loadAllData() {
             try {
+                // Wait a bit to ensure all stores are defined
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
                 await Alpine.store('app').loadGlobalSettings();
                 await Alpine.store('chat').loadChats();
                 await Alpine.store('settings').loadConfig();
                 await Alpine.store('worldBook').loadBooks();
                 await Alpine.store('personas').loadPersonas();
+                await Alpine.store('profile').loadProfile();
                 await Alpine.store('moments').loadMoments();
                 
                 // Auto-fetch models for OpenAI-compatible APIs after loading config
@@ -1522,6 +1585,46 @@ function phoneApp() {
         // Get computed properties for current page
         get currentPage() {
             return Alpine.store('app').currentPage;
+        },
+
+        // Profile management
+        profileSaving: false,
+        
+        async handleAvatarUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            try {
+                const success = await Alpine.store('profile').updateAvatar(file);
+                if (success) {
+                    // Clear the input for next selection
+                    event.target.value = '';
+                } else {
+                    alert('头像上传失败，请重试');
+                }
+            } catch (error) {
+                console.error('Failed to upload avatar:', error);
+                alert('头像上传失败: ' + error.message);
+            }
+        },
+        
+        async saveProfile() {
+            if (this.profileSaving) return;
+            
+            this.profileSaving = true;
+            try {
+                const success = await Alpine.store('profile').saveProfile();
+                if (success) {
+                    alert('✅ 个人资料保存成功');
+                } else {
+                    alert('❌ 保存失败，请重试');
+                }
+            } catch (error) {
+                console.error('Failed to save profile:', error);
+                alert('保存失败: ' + error.message);
+            } finally {
+                this.profileSaving = false;
+            }
         }
     }
 }

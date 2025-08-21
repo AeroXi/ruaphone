@@ -10,7 +10,7 @@
     
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=1.2.0">
+    <link rel="stylesheet" href="styles.css?v=1.3.0">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -74,6 +74,13 @@
                             <div class="app-icon-label">通讯录</div>
                         </div>
                         
+                        <div class="app-icon" @click="navigateTo('profile')">
+                            <div class="app-icon-image">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            <div class="app-icon-label">个人资料</div>
+                        </div>
+                        
                         <div class="app-icon" @click="navigateTo('api-settings')">
                             <div class="app-icon-image">
                                 <i class="fas fa-key"></i>
@@ -82,13 +89,11 @@
                         </div>
                         
                         
-                        
-                        
                     </div>
                     
                     <!-- Version info -->
                     <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #999; font-size: 10px; text-align: center;">
-                        RuaPhone v1.2.0
+                        RuaPhone v1.3.0
                     </div>
                 </div>
 
@@ -161,7 +166,14 @@
                         <template x-for="message in messages" :key="message.id">
                             <div class="message" :class="{ 'user': message.role === 'user', 'assistant': message.role === 'assistant' }">
                                 <div class="avatar">
-                                    <span x-show="message.role === 'user'" class="user-avatar">👤</span>
+                                    <div x-show="message.role === 'user'" class="user-avatar">
+                                        <img x-show="$store.profile.profile.avatar" 
+                                             :src="$store.profile.profile.avatar" 
+                                             alt="我的头像"
+                                             class="user-avatar-img"
+                                             @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
+                                        <span x-show="!$store.profile.profile.avatar">👤</span>
+                                    </div>
                                     <div x-show="message.role === 'assistant'" class="ai-avatar">
                                         <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
                                              :src="currentChat?.avatar" 
@@ -216,6 +228,83 @@
                     </div>
                 </div>
 
+                <!-- Profile Page -->
+                <div class="page" :class="{ active: $store.app.currentPage === 'profile' }">
+                    <div class="header">
+                        <button class="header-button" @click="navigateTo('home')">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
+                        <div class="header-title">个人资料</div>
+                        <button class="header-button profile-save-btn" @click="saveProfile()" :disabled="profileSaving">
+                            <template x-if="!profileSaving">
+                                <span>保存</span>
+                            </template>
+                            <template x-if="profileSaving">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </template>
+                        </button>
+                    </div>
+                    <div class="content profile-content">
+                        <!-- Avatar Section -->
+                        <div class="profile-avatar-section">
+                            <div class="profile-avatar-container" @click="$refs.avatarInput.click()">
+                                <img x-show="$store.profile.profile.avatar" 
+                                     :src="$store.profile.profile.avatar" 
+                                     alt="头像"
+                                     class="profile-avatar">
+                                <div x-show="!$store.profile.profile.avatar" class="profile-avatar-placeholder">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                                <div class="profile-avatar-overlay">
+                                    <i class="fas fa-camera"></i>
+                                </div>
+                            </div>
+                            <input type="file" 
+                                   x-ref="avatarInput" 
+                                   @change="handleAvatarUpload($event)" 
+                                   accept="image/*" 
+                                   style="display: none;">
+                        </div>
+                        
+                        <!-- Profile Form -->
+                        <div class="profile-form">
+                            <div class="form-group">
+                                <label class="form-label">姓名</label>
+                                <input type="text" 
+                                       class="form-input" 
+                                       x-model="$store.profile.profile.name" 
+                                       placeholder="请输入您的姓名">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">性别</label>
+                                <input type="text" 
+                                       class="form-input" 
+                                       x-model="$store.profile.profile.gender" 
+                                       placeholder="请输入您的性别">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">年龄</label>
+                                <input type="number" 
+                                       class="form-input" 
+                                       x-model="$store.profile.profile.age" 
+                                       placeholder="请输入您的年龄"
+                                       min="1" 
+                                       max="150">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">个人介绍</label>
+                                <textarea class="form-input profile-bio" 
+                                          x-model="$store.profile.profile.bio" 
+                                          placeholder="介绍一下自己吧..."
+                                          rows="4"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- API Settings Page -->
                 <div class="page" :class="{ active: $store.app.currentPage === 'api-settings' }">
                     <div class="header">
@@ -237,7 +326,7 @@
                             box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
                         ">
                             <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">
-                                🚀 RuaPhone v1.2.0
+                                🚀 RuaPhone v1.3.0
                             </div>
                             <div style="font-size: 12px; opacity: 0.9;">
                                 可爱的小手机rua~
@@ -781,7 +870,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=1.2.0"></script>
-    <script src="version-update.js?v=1.2.0"></script>
+    <script src="script.js?v=1.3.4"></script>
+    <script src="version-update.js?v=1.3.0"></script>
 </body>
 </html>
