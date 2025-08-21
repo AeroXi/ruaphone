@@ -501,7 +501,7 @@ body {
 
 .user-avatar {
     background: #ddd;
-    border-radius: 4px;
+    border-radius: 50%;
     width: 32px;
     height: 32px;
     display: flex;
@@ -514,7 +514,6 @@ body {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    border-radius: 4px;
 }
 
 .ai-avatar {
@@ -1194,15 +1193,13 @@ body {
 .persona-avatar {
     width: 50px;
     height: 50px;
-    border-radius: 50%;
-    overflow: hidden;
     flex-shrink: 0;
 }
 
 .persona-avatar img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .persona-info {
@@ -1298,19 +1295,16 @@ body {
 .persona-option .persona-avatar {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
     margin-bottom: 8px;
-    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--background-light);
 }
 
 .persona-option .persona-avatar img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .persona-option .persona-avatar i {
@@ -1343,19 +1337,16 @@ body {
 .list-item-avatar-container {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
-    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #e8e8e8;
     margin-right: 12px;
 }
 
 .list-item-avatar {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .list-item-avatar-fallback {
