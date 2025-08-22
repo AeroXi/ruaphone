@@ -628,6 +628,8 @@ document.addEventListener('alpine:init', () => {
         isLoading: false,
         isPWA: false,
         storageStatus: 'unknown', // persistent, not-persistent, unknown
+        customCSSSaving: false,
+        customCSSSaved: false,
         
         // Global Settings
         globalSettings: {
@@ -635,7 +637,8 @@ document.addEventListener('alpine:init', () => {
             myAddress: '未知城市',
             myPersona: '普通用户',
             maxMemory: 20,
-            debugPrompt: false
+            debugPrompt: false,
+            customCSS: ''
         },
         
         // Initialize global settings
@@ -646,6 +649,8 @@ document.addEventListener('alpine:init', () => {
             } else {
                 await this.saveGlobalSettings();
             }
+            // Apply custom CSS after loading settings
+            this.applyCustomCSS();
         },
         
         async saveGlobalSettings() {
@@ -653,6 +658,46 @@ document.addEventListener('alpine:init', () => {
                 id: 'main',
                 ...this.globalSettings
             });
+        },
+        
+        // Custom CSS Management
+        applyCustomCSS() {
+            // Remove existing custom CSS
+            const existingStyle = document.getElementById('custom-chat-css');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+            
+            // Apply new custom CSS if exists
+            if (this.globalSettings.customCSS.trim()) {
+                const style = document.createElement('style');
+                style.id = 'custom-chat-css';
+                style.textContent = this.globalSettings.customCSS;
+                document.head.appendChild(style);
+            }
+        },
+        
+        async saveCustomCSS(css) {
+            try {
+                this.customCSSSaving = true;
+                this.customCSSSaved = false;
+                
+                this.globalSettings.customCSS = css;
+                await this.saveGlobalSettings();
+                this.applyCustomCSS();
+                
+                this.customCSSSaved = true;
+                
+                // 2秒后隐藏成功状态
+                setTimeout(() => {
+                    this.customCSSSaved = false;
+                }, 2000);
+            } catch (error) {
+                console.error('保存自定义CSS失败:', error);
+                alert('保存失败，请重试');
+            } finally {
+                this.customCSSSaving = false;
+            }
         },
         
         // Navigation

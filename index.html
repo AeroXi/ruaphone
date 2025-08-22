@@ -10,7 +10,7 @@
     
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=1.3.3">
+    <link rel="stylesheet" href="styles.css?v=1.3.7">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -93,7 +93,7 @@
                     
                     <!-- Version info -->
                     <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #999; font-size: 10px; text-align: center;">
-                        RuaPhone v1.3.3
+                        RuaPhone v1.3.7
                     </div>
                 </div>
 
@@ -160,17 +160,38 @@
                     <!-- Messages Container -->
                     <div class="chat-messages" x-ref="messagesContainer">
                         <template x-for="message in messages" :key="message.id">
-                            <div class="message" :class="{ 'user': message.role === 'user', 'assistant': message.role === 'assistant' }">
-                                <div class="avatar">
-                                    <div x-show="message.role === 'user'" class="user-avatar">
-                                        <img x-show="$store.profile.profile.avatar" 
-                                             :src="$store.profile.profile.avatar" 
-                                             alt="我的头像"
-                                             class="user-avatar-img"
-                                             @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
-                                        <span x-show="!$store.profile.profile.avatar">👤</span>
+                            <div class="message-wrapper" :class="{ 'user': message.role === 'user', 'ai': message.role === 'assistant' }">
+                                <div class="message message-bubble" :class="{ 'user': message.role === 'user', 'assistant': message.role === 'assistant', 'ai': message.role === 'assistant' }">
+                                    <div class="avatar avatar-group">
+                                        <div x-show="message.role === 'user'" class="user-avatar">
+                                            <img x-show="$store.profile.profile.avatar" 
+                                                 :src="$store.profile.profile.avatar" 
+                                                 alt="我的头像"
+                                                 class="user-avatar-img"
+                                                 @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
+                                            <span x-show="!$store.profile.profile.avatar">👤</span>
+                                        </div>
+                                        <div x-show="message.role === 'assistant'" class="ai-avatar">
+                                            <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
+                                                 :src="currentChat?.avatar" 
+                                                 :alt="currentChat?.name"
+                                                 @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
+                                            <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'">🤖</span>
+                                        </div>
                                     </div>
-                                    <div x-show="message.role === 'assistant'" class="ai-avatar">
+                                    <div class="message-content content">
+                                        <div class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
+                                        <div class="message-time" x-text="formatTime(message.timestamp)"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        
+                        <!-- Loading indicator -->
+                        <div x-show="$store.app.isLoading" class="message-wrapper ai">
+                            <div class="message message-bubble assistant ai">
+                                <div class="avatar avatar-group">
+                                    <div class="ai-avatar">
                                         <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
                                              :src="currentChat?.avatar" 
                                              :alt="currentChat?.name"
@@ -178,26 +199,9 @@
                                         <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'">🤖</span>
                                     </div>
                                 </div>
-                                <div class="message-content">
-                                    <div class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
-                                    <div class="message-time" x-text="formatTime(message.timestamp)"></div>
+                                <div class="message-content content">
+                                    <div class="message-text">AI正在思考中...</div>
                                 </div>
-                            </div>
-                        </template>
-                        
-                        <!-- Loading indicator -->
-                        <div x-show="$store.app.isLoading" class="message assistant">
-                            <div class="avatar">
-                                <div class="ai-avatar">
-                                    <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
-                                         :src="currentChat?.avatar" 
-                                         :alt="currentChat?.name"
-                                         @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
-                                    <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'">🤖</span>
-                                </div>
-                            </div>
-                            <div class="message-content">
-                                <div class="message-text">AI正在思考中...</div>
                             </div>
                         </div>
                     </div>
@@ -322,7 +326,7 @@
                             box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
                         ">
                             <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">
-                                🚀 RuaPhone v1.3.3
+                                🚀 RuaPhone v1.3.7
                             </div>
                             <div style="font-size: 12px; opacity: 0.9;">
                                 可爱的小手机rua~
@@ -481,6 +485,90 @@
                                     </button>
                                 </div>
                             </template>
+                        </div>
+                        
+                        <!-- Theme Settings Section -->
+                        <div class="form-section" style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #E5E5EA;">
+                            <h3 style="margin: 0 0 16px 0; font-size: 18px; font-weight: 600; color: #1C1C1E;">聊天主题设置</h3>
+                            
+                            <div class="form-group">
+                                <div class="form-help" style="background: #F2F2F7; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                                    <p style="margin: 0 0 8px 0; font-weight: 500; color: #1C1C1E;">🎨 自定义聊天气泡样式</p>
+                                    <p style="margin: 0; font-size: 14px; color: #8E8E93;">
+                                        支持开源社区的CSS代码，可以自定义聊天气泡的样式、颜色、动画等效果。
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">自定义CSS代码</label>
+                                <textarea 
+                                    class="form-input" 
+                                    x-model="$store.app.globalSettings.customCSS" 
+                                    placeholder="/* 在这里粘贴自定义CSS代码 */&#10;&#10;/* 示例：漂浮动画气泡 */&#10;@keyframes bubble-float {&#10;  0%, 100% { transform: translateY(0); }&#10;  50% { transform: translateY(-4px); }&#10;}&#10;&#10;.message-bubble.user .content {&#10;  background: rgba(220, 230, 225, 1);&#10;  color: #4a5550;&#10;  border-radius: 18px;&#10;  animation: bubble-float 2.5s ease-in-out infinite;&#10;}"
+                                    rows="8"
+                                    style="font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 12px; line-height: 1.4;">
+                                </textarea>
+                                <small class="form-help">
+                                    支持 .message-bubble.user 和 .message-bubble.ai 选择器，兼容开源社区CSS代码。
+                                </small>
+                            </div>
+                            
+                            <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                                <button class="button" 
+                                        :style="$store.app.customCSSSaved ? 'background: #34C759;' : 'background: #007AFF;'"
+                                        @click="$store.app.saveCustomCSS($store.app.globalSettings.customCSS)"
+                                        :disabled="$store.app.customCSSSaving"
+                                        style="font-size: 13px; padding: 8px 10px;">
+                                    <template x-if="$store.app.customCSSSaving">
+                                        <i class="fas fa-spinner fa-spin" style="margin-right: 6px;"></i>
+                                    </template>
+                                    <template x-if="!$store.app.customCSSSaving && $store.app.customCSSSaved">
+                                        <i class="fas fa-check" style="margin-right: 6px;"></i>
+                                    </template>
+                                    <template x-if="!$store.app.customCSSSaving && !$store.app.customCSSSaved">
+                                        <i class="fas fa-save" style="margin-right: 6px;"></i>
+                                    </template>
+                                    <span x-text="$store.app.customCSSSaving ? '保存中' : ($store.app.customCSSSaved ? '已保存' : '保存应用')"></span>
+                                </button>
+                                <button class="button" style="background: #FF9500; font-size: 13px; padding: 8px 10px;" @click="
+                                    $store.app.globalSettings.customCSS = '';
+                                    $store.app.saveCustomCSS('');
+                                ">
+                                    <i class="fas fa-undo" style="margin-right: 6px;"></i>
+                                    重置样式
+                                </button>
+                                <button class="button" style="background: #34C759; font-size: 13px; padding: 8px 10px;" @click="
+                                    $store.app.globalSettings.customCSS = `/* 漂浮动画 */
+@keyframes bubble-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* 用户消息气泡样式 */
+.message-bubble.user .content {
+  position: relative;
+  overflow: hidden;
+  background: rgba(220, 230, 225, 1);
+  color: #4a5550;
+  border-radius: 18px;
+  padding: 8px 12px;
+  box-shadow: 0px 4px 12px 0px rgba(0, 0, 0, 0.08);
+  animation: bubble-float 2.5s ease-in-out infinite;
+}
+
+/* AI回复气泡样式 */
+.message-bubble.ai .content {
+  background: rgba(255, 255, 255, 0.9);
+  color: #333;
+  border-radius: 18px;
+  box-shadow: 0px 2px 8px 0px rgba(0, 0, 0, 0.1);
+}`;
+                                ">
+                                    <i class="fas fa-magic" style="margin-right: 6px;"></i>
+                                    示例样式
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -867,7 +955,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=1.3.3"></script>
-    <script src="version-update.js?v=1.3.3"></script>
+    <script src="script.js?v=1.3.7"></script>
+    <script src="version-update.js?v=1.3.7"></script>
 </body>
 </html>

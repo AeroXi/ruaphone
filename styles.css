@@ -437,25 +437,51 @@ body {
     background: #f6f6f6;
 }
 
-.message {
+/* Message Wrapper (Community Compatible) */
+.message-wrapper {
     display: flex;
-    align-items: flex-end;
+    width: 100%;
     margin-bottom: 8px;
-    gap: 8px;
 }
 
-.message.user {
-    align-self: flex-end;
+.message-wrapper.user {
     justify-content: flex-end;
-    flex-direction: row-reverse;
 }
 
-.message.assistant {
-    align-self: flex-start;
+.message-wrapper.ai {
     justify-content: flex-start;
 }
 
-.message-content {
+/* Message Bubble (Community Compatible + Original) */
+.message,
+.message-bubble {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.message.user,
+.message-bubble.user {
+    flex-direction: row-reverse;
+}
+
+.message.assistant,
+.message-bubble.assistant,
+.message-bubble.ai {
+    flex-direction: row;
+}
+
+/* Avatar Groups */
+.avatar,
+.avatar-group {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Message Content (Community Compatible) */
+.message-content,
+.message-bubble .content {
     padding: 10px 15px;
     border-radius: 6px;
     position: relative;
@@ -463,16 +489,22 @@ body {
     word-wrap: break-word;
 }
 
-.message.user .message-content {
+/* User Message Styles (Both Original and Community Compatible) */
+.message.user .message-content,
+.message-bubble.user .message-content,
+.message-bubble.user .content {
     background: #95ec69;
     color: #000;
-    margin-right: 8px;
 }
 
-.message.assistant .message-content {
+/* AI/Assistant Message Styles (Both Original and Community Compatible) */
+.message.assistant .message-content,
+.message-bubble.assistant .message-content,
+.message-bubble.assistant .content,
+.message-bubble.ai .message-content,
+.message-bubble.ai .content {
     background: white;
     color: #000;
-    margin-left: 8px;
 }
 
 .message-text {
