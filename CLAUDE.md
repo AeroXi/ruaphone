@@ -144,3 +144,37 @@ The project includes sophisticated cache management for both browser and PWA use
 - Async/await for database operations
 - Chinese UI text for user-facing elements
 - Timestamp-based IDs for database records
+
+## Custom Slash Commands
+
+### Creating Project Commands
+Commands specific to this project should be placed in `.claude/commands/` directory:
+
+```bash
+# Create project command directory
+mkdir -p .claude/commands
+
+# Create a custom command (example: code optimization)
+echo "Analyze this code for performance issues and suggest optimizations:" > .claude/commands/optimize.md
+```
+
+### Command Features
+- **Arguments**: Use `$ARGUMENTS` placeholder in command content
+- **File references**: Use `@filename` to reference specific files  
+- **Bash execution**: Prefix commands with `!` to run bash commands
+- **Namespacing**: Use subdirectories for organization
+
+### Command Configuration
+Add frontmatter to `.md` files for advanced options:
+```markdown
+---
+description: "Brief command description"
+argument-hint: "Expected argument format"
+allowed-tools: ["Read", "Edit", "Bash"]
+model: "claude-3-5-sonnet-20241022"
+---
+Command content here with $ARGUMENTS placeholder
+```
+
+### Personal Commands
+For commands across all projects, use `~/.claude/commands/` directory.
