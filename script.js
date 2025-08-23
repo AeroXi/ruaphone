@@ -1,12 +1,12 @@
 // Initialize Database
 const db = new Dexie('RuaPhoneDB');
 
-// Define all tables in version 6 to avoid upgrade issues
-db.version(6).stores({
+// Define all tables in version 7 to add enabled field to worldBooks
+db.version(7).stores({
     chats: '&id, name, type, personaId, created',
     messages: '&id, chatId, timestamp, role',
     apiConfig: '&id',
-    worldBooks: '&id, name, created',
+    worldBooks: '&id, name, enabled, created',
     personas: '&id, name, avatar, persona, created',
     globalSettings: '&id',
     moments: '&id, userId, userName, timestamp, content',
@@ -1168,7 +1168,11 @@ document.addEventListener('alpine:init', () => {
                 const worldBooks = await db.worldBooks.toArray();
                 if (worldBooks.length === 0) return '';
                 
-                return '\n\n# 世界设定\n' + worldBooks.map(book => 
+                // Only include enabled world books
+                const enabledBooks = worldBooks.filter(book => book.enabled === true);
+                if (enabledBooks.length === 0) return '';
+                
+                return '\n\n# 世界设定\n' + enabledBooks.map(book => 
                     `## ${book.name}\n${book.content}`
                 ).join('\n\n');
             } catch (error) {
@@ -1359,12 +1363,47 @@ document.addEventListener('alpine:init', () => {
                 id: Date.now().toString(),
                 name: name,
                 content: content,
+                enabled: true,
                 created: Date.now()
             };
             
             await db.worldBooks.add(book);
             await this.loadBooks();
             return book.id;
+        },
+        
+        async updateBook(id, data) {
+            await db.worldBooks.update(id, data);
+            await this.loadBooks();
+        },
+        
+        async deleteBook(id) {
+            await db.worldBooks.delete(id);
+            await this.loadBooks();
+        },
+        
+        async toggleBook(id) {
+            const book = await db.worldBooks.get(id);
+            if (book) {
+                await db.worldBooks.update(id, { enabled: !book.enabled });
+                await this.loadBooks();
+            }
+        },
+        
+        async selectAll() {
+            const updates = this.books.map(book => 
+                db.worldBooks.update(book.id, { enabled: true })
+            );
+            await Promise.all(updates);
+            await this.loadBooks();
+        },
+        
+        async deselectAll() {
+            const updates = this.books.map(book => 
+                db.worldBooks.update(book.id, { enabled: false })
+            );
+            await Promise.all(updates);
+            await this.loadBooks();
         }
     });
 
@@ -1693,6 +1732,20 @@ function phoneApp() {
             if (name && name.trim()) {
                 await Alpine.store('worldBook').createBook(name.trim(), '');
             }
+        },
+
+        async editWorldBook(bookId) {
+            const book = Alpine.store('worldBook').books.find(b => b.id === bookId);
+            if (book) {
+                window.dispatchEvent(new CustomEvent('edit-world-book', {
+                    detail: book
+                }));
+            }
+        },
+
+        showMessage(message) {
+            // Simple alert for now, can be enhanced with toast notifications later
+            alert(message);
         },
 
 

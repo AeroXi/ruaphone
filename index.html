@@ -60,12 +60,12 @@
                             <div class="app-icon-label">主题</div>
                         </div> -->
                         
-                        <!-- <div class="app-icon" @click="navigateTo('world-book')">
+                        <div class="app-icon" @click="navigateTo('world-book')">
                             <div class="app-icon-image">
                                 <i class="fas fa-book"></i>
                             </div>
                             <div class="app-icon-label">世界书</div>
-                        </div> -->
+                        </div>
                         
                         <div class="app-icon" @click="navigateTo('personas')">
                             <div class="app-icon-image">
@@ -580,24 +580,55 @@
                             <i class="fas fa-arrow-left"></i>
                         </button>
                         <div class="header-title">世界书</div>
-                        <button class="header-button" @click="createNewWorldBook()">
+                        <button class="header-button" @click="$dispatch('open-create-world-book')">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                     <div class="content">
+                        <!-- Selection controls -->
+                        <div x-show="$store.worldBook.books.length > 0" class="selection-controls">
+                            <button class="button secondary small" @click="$store.worldBook.selectAll()">
+                                <i class="fas fa-check-square"></i> 全选
+                            </button>
+                            <button class="button secondary small" @click="$store.worldBook.deselectAll()">
+                                <i class="fas fa-square"></i> 全不选
+                            </button>
+                            <span class="enabled-count" x-text="`已启用: ${$store.worldBook.books.filter(b => b.enabled).length} / ${$store.worldBook.books.length}`"></span>
+                        </div>
+                        
                         <div class="list-container" x-show="$store.worldBook.books.length > 0">
                             <template x-for="book in $store.worldBook.books" :key="book.id">
-                                <div class="list-item" @click="editWorldBook(book.id)">
-                                    <div class="list-item-content">
+                                <div class="list-item world-book-item">
+                                    <div class="world-book-checkbox">
+                                        <input type="checkbox" 
+                                               :checked="book.enabled" 
+                                               @change="$store.worldBook.toggleBook(book.id)"
+                                               :id="'book-' + book.id">
+                                        <label :for="'book-' + book.id"></label>
+                                    </div>
+                                    <div class="list-item-content" @click="editWorldBook(book.id)">
                                         <div class="list-item-title" x-text="book.name"></div>
-                                        <div class="list-item-subtitle" x-text="book.content.substring(0, 50) + '...' || '暂无内容'"></div>
+                                        <div class="list-item-subtitle" x-text="book.content ? (book.content.substring(0, 50) + (book.content.length > 50 ? '...' : '')) : '暂无内容'"></div>
+                                    </div>
+                                    <div class="world-book-actions">
+                                        <button class="action-btn edit-btn" @click="editWorldBook(book.id)" title="编辑">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="action-btn delete-btn" @click="
+                                            if (confirm('确定要删除这个世界书吗？')) {
+                                                $store.worldBook.deleteBook(book.id);
+                                                showMessage('世界书已删除');
+                                            }
+                                        " title="删除">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </template>
                         </div>
                         <div x-show="$store.worldBook.books.length === 0" class="text-center p-4">
                             <p class="text-secondary">暂无世界书</p>
-                            <button class="button mt-4" @click="createNewWorldBook()">创建世界书</button>
+                            <button class="button mt-4" @click="$dispatch('open-create-world-book')">创建世界书</button>
                         </div>
                     </div>
                 </div>
@@ -950,6 +981,76 @@
                             ).then(() => { showPersonaModal = false; });
                         }
                     " x-text="editingPersonaId ? '保存' : '创建'"></button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- World Book Modal -->
+        <div class="modal" :class="{ active: showWorldBookModal }" 
+             x-data="{ 
+                 showWorldBookModal: false, 
+                 editingWorldBookId: null,
+                 worldBookName: '',
+                 worldBookContent: ''
+             }"
+             @open-create-world-book.window="
+                 editingWorldBookId = null;
+                 worldBookName = '';
+                 worldBookContent = '';
+                 showWorldBookModal = true;
+             "
+             @edit-world-book.window="
+                 editingWorldBookId = $event.detail.id;
+                 worldBookName = $event.detail.name;
+                 worldBookContent = $event.detail.content;
+                 showWorldBookModal = true;
+             ">
+            <div class="modal-overlay" @click="showWorldBookModal = false"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 x-text="editingWorldBookId ? '编辑世界书' : '创建世界书'"></h3>
+                    <button class="close-button" @click="showWorldBookModal = false">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>世界书名称</label>
+                        <input type="text" x-model="worldBookName" placeholder="请输入世界书名称" />
+                    </div>
+                    <div class="form-group">
+                        <label>世界书内容</label>
+                        <textarea x-model="worldBookContent" 
+                                  rows="10" 
+                                  placeholder="请输入详细的世界设定内容...支持大量文本和 Emoji 🌟"></textarea>
+                        <small class="form-hint">支持数万字的内容，包含 Emoji 等 UTF-8 字符</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="button secondary" @click="showWorldBookModal = false">取消</button>
+                    <button class="button primary" @click="
+                        if (!worldBookName.trim()) {
+                            alert('请输入世界书名称');
+                            return;
+                        }
+                        if (editingWorldBookId) {
+                            $store.worldBook.updateBook(editingWorldBookId, {
+                                name: worldBookName.trim(),
+                                content: worldBookContent.trim()
+                            }).then(() => { 
+                                showWorldBookModal = false; 
+                                showMessage('世界书保存成功！');
+                            });
+                        } else {
+                            $store.worldBook.createBook(
+                                worldBookName.trim(),
+                                worldBookContent.trim()
+                            ).then(() => { 
+                                showWorldBookModal = false; 
+                                showMessage('世界书创建成功！');
+                            });
+                        }
+                    " x-text="editingWorldBookId ? '保存' : '创建'"></button>
                 </div>
             </div>
         </div>
