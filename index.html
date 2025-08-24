@@ -146,14 +146,7 @@
                         <button class="header-button" @click="$store.app.navigateTo('chat-list')">
                             <i class="fas fa-arrow-left"></i>
                         </button>
-                        <div class="header-center">
-                            <div class="chat-header-avatar">
-                                <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
-                                     :src="currentChat?.avatar" 
-                                     :alt="currentChat?.name">
-                            </div>
-                            <div class="header-title" x-text="currentChat?.name || '聊天'"></div>
-                        </div>
+                        <div class="header-title" x-text="currentChat?.name || '聊天'"></div>
                         <div style="width: 32px;"></div>
                     </div>
                     
