@@ -146,7 +146,7 @@
                         <button class="header-button" @click="$store.app.navigateTo('chat-list')">
                             <i class="fas fa-arrow-left"></i>
                         </button>
-                        <div class="header-title" x-text="currentChat?.name || '聊天'"></div>
+                        <div class="header-title" x-text="$store.app.isLoading ? '对方正在输入...' : (currentChat?.name || '聊天')"></div>
                         <div style="width: 32px;"></div>
                     </div>
                     
@@ -255,23 +255,6 @@
                             </div>
                         </template>
                         
-                        <!-- Loading indicator -->
-                        <div x-show="$store.app.isLoading" class="message-wrapper ai">
-                            <div class="message message-bubble assistant ai">
-                                <div class="avatar avatar-group">
-                                    <div class="ai-avatar">
-                                        <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
-                                             :src="currentChat?.avatar" 
-                                             :alt="currentChat?.name"
-                                             @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
-                                        <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'">🤖</span>
-                                    </div>
-                                </div>
-                                <div class="message-content content">
-                                    <div class="message-text">AI正在思考中...</div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                     
                     <!-- Input Area -->
