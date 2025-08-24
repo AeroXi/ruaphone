@@ -999,10 +999,27 @@ document.addEventListener('alpine:init', () => {
                 // Convert messages to API format
                 const messagesPayload = [
                     { role: 'system', content: systemPrompt },
-                    ...recentMessages.map(msg => ({
-                        role: msg.role,
-                        content: msg.content
-                    }))
+                    ...recentMessages.map(msg => {
+                        // Handle image messages with the new OpenAI format
+                        if (msg.type === 'image' && msg.imageUrl) {
+                            return {
+                                role: msg.role,
+                                content: [
+                                    { 
+                                        type: "image_url", 
+                                        image_url: { 
+                                            url: msg.imageUrl 
+                                        }
+                                    }
+                                ]
+                            };
+                        }
+                        // Handle regular text messages
+                        return {
+                            role: msg.role,
+                            content: msg.content
+                        };
+                    })
                 ];
                 
                 // 调试输出完整的消息载荷
@@ -1027,10 +1044,35 @@ document.addEventListener('alpine:init', () => {
                                 parts: [{ text: `System instructions: ${msg.content}` }]
                             });
                         } else if (msg.role === 'user') {
-                            contents.push({
-                                role: 'user',
-                                parts: [{ text: msg.content }]
-                            });
+                            // Handle image content for Gemini
+                            if (Array.isArray(msg.content)) {
+                                const parts = [];
+                                for (const item of msg.content) {
+                                    if (item.type === 'image_url') {
+                                        // Convert base64 data URL to Gemini format
+                                        const base64Match = item.image_url.url.match(/^data:image\/([^;]+);base64,(.+)$/);
+                                        if (base64Match) {
+                                            parts.push({
+                                                inline_data: {
+                                                    mime_type: `image/${base64Match[1]}`,
+                                                    data: base64Match[2]
+                                                }
+                                            });
+                                        }
+                                    } else if (item.type === 'text') {
+                                        parts.push({ text: item.text });
+                                    }
+                                }
+                                contents.push({
+                                    role: 'user',
+                                    parts: parts
+                                });
+                            } else {
+                                contents.push({
+                                    role: 'user',
+                                    parts: [{ text: msg.content }]
+                                });
+                            }
                         } else if (msg.role === 'assistant') {
                             contents.push({
                                 role: 'model',
