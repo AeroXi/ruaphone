@@ -161,29 +161,104 @@
                     <div class="chat-messages" x-ref="messagesContainer">
                         <template x-for="message in messages" :key="message.id">
                             <div class="message-wrapper" :class="{ 'user': message.role === 'user', 'ai': message.role === 'assistant' }">
-                                <div class="message message-bubble" :class="{ 'user': message.role === 'user', 'assistant': message.role === 'assistant', 'ai': message.role === 'assistant' }">
-                                    <div class="avatar avatar-group">
-                                        <div x-show="message.role === 'user'" class="user-avatar">
-                                            <img x-show="$store.profile.profile.avatar" 
-                                                 :src="$store.profile.profile.avatar" 
-                                                 alt="我的头像"
-                                                 class="user-avatar-img"
-                                                 @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
-                                            <span x-show="!$store.profile.profile.avatar">👤</span>
+                                
+                                <!-- Recall Message (system message style) -->
+                                <template x-if="message.type === 'recall'">
+                                    <div class="message-recall">
+                                        <span x-text="(message.senderName || (message.role === 'user' ? '你' : '对方')) + '撤回了一条消息'"></span>
+                                    </div>
+                                </template>
+                                
+                                <!-- Regular Messages -->
+                                <template x-if="message.type !== 'recall'">
+                                    <div class="message message-bubble" 
+                                         :class="{ 
+                                             'user': message.role === 'user', 
+                                             'assistant': message.role === 'assistant',
+                                             'ai': message.role === 'assistant',
+                                             'message-text': message.type === 'text' || !message.type,
+                                             'message-voice': message.type === 'voice',
+                                             'message-image': message.type === 'image',
+                                             'message-transfer': message.type === 'transfer',
+                                             'message-sticker': message.type === 'sticker'
+                                         }">
+                                        
+                                        <!-- Avatar -->
+                                        <div class="avatar avatar-group">
+                                            <div x-show="message.role === 'user'" class="user-avatar">
+                                                <img x-show="$store.profile.profile.avatar" 
+                                                     :src="$store.profile.profile.avatar" 
+                                                     alt="我的头像"
+                                                     class="user-avatar-img"
+                                                     @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
+                                                <span x-show="!$store.profile.profile.avatar">👤</span>
+                                            </div>
+                                            <div x-show="message.role === 'assistant'" class="ai-avatar">
+                                                <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
+                                                     :src="currentChat?.avatar" 
+                                                     :alt="currentChat?.name"
+                                                     @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
+                                                <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'">🤖</span>
+                                            </div>
                                         </div>
-                                        <div x-show="message.role === 'assistant'" class="ai-avatar">
-                                            <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
-                                                 :src="currentChat?.avatar" 
-                                                 :alt="currentChat?.name"
-                                                 @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
-                                            <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'">🤖</span>
+
+                                        <!-- Message Content -->
+                                        <div class="message-content content">
+                                            
+                                            <!-- Text Message -->
+                                            <template x-if="message.type === 'text' || !message.type">
+                                                <div class="message-text-content">
+                                                    <div class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Voice Message -->
+                                            <template x-if="message.type === 'voice'">
+                                                <div class="voice-message" @click="playVoiceMessage(message)">
+                                                    <div class="voice-icon">🎤</div>
+                                                    <div class="voice-waveform">
+                                                        <span></span><span></span><span></span><span></span><span></span>
+                                                    </div>
+                                                    <div class="voice-duration" x-text="(message.voiceDuration || 1) + '″'"></div>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Image Message -->
+                                            <template x-if="message.type === 'image'">
+                                                <div class="image-message">
+                                                    <img :src="message.imageUrl" 
+                                                         :alt="message.content || '图片'"
+                                                         @click="viewImage(message.imageUrl)"
+                                                         @error="$event.target.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+5Zu+54mH5LiN5a2Y5ZyoPC90ZXh0Pjwvc3ZnPg=='; $event.target.style.maxWidth='200px'; $event.target.style.maxHeight='100px';">
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Transfer Message -->
+                                            <template x-if="message.type === 'transfer'">
+                                                <div class="transfer-message">
+                                                    <div class="transfer-icon">💰</div>
+                                                    <div class="transfer-content">
+                                                        <div class="transfer-title" x-text="message.role === 'user' ? '转账给对方' : '收到转账'"></div>
+                                                        <div class="transfer-amount">¥<span x-text="(message.transferAmount || 0).toFixed(2)"></span></div>
+                                                        <div class="transfer-note" x-text="message.transferNote || (message.role === 'user' ? '转账给你' : '对方转账给你')"></div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Sticker Message -->
+                                            <template x-if="message.type === 'sticker'">
+                                                <div class="sticker-message">
+                                                    <img :src="message.stickerUrl" 
+                                                         :alt="message.content || '表情'"
+                                                         @error="$event.target.style.display='none'">
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Message Time -->
+                                            <div class="message-time" x-text="formatTime(message.timestamp)"></div>
                                         </div>
                                     </div>
-                                    <div class="message-content content">
-                                        <div class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
-                                        <div class="message-time" x-text="formatTime(message.timestamp)"></div>
-                                    </div>
-                                </div>
+                                </template>
                             </div>
                         </template>
                         
@@ -207,7 +282,123 @@
                     </div>
                     
                     <!-- Input Area -->
-                    <div class="chat-input">
+                    <div class="chat-input" 
+                         x-data="{
+                             showVoiceInput: false, 
+                             showTransferDialog: false, 
+                             voiceText: '', 
+                             transferAmount: '', 
+                             transferNote: '',
+                             showImageInput: false,
+                             
+                             async sendVoiceMessage() {
+                                 const chatId = Alpine.store('app').currentChatId;
+                                 
+                                 if (!this.voiceText.trim()) return;
+                                 
+                                 const voiceMessage = {
+                                     type: 'voice',
+                                     content: this.voiceText.trim(),
+                                     voiceDuration: Math.ceil(this.voiceText.length / 5)
+                                 };
+                                 
+                                 await Alpine.store('chat').sendMessage(chatId, voiceMessage);
+                                 
+                                 // Reset and close modal
+                                 this.voiceText = '';
+                                 this.showVoiceInput = false;
+                                 
+                                 // Scroll to bottom
+                                 this.$nextTick(() => {
+                                     const container = this.$el.closest('.chat-page').querySelector('[x-ref=messagesContainer]');
+                                     if (container) {
+                                         container.scrollTop = container.scrollHeight;
+                                     }
+                                 });
+                             },
+                             
+                             async sendTransferMessage() {
+                                 const chatId = Alpine.store('app').currentChatId;
+                                 
+                                 const amount = parseFloat(this.transferAmount);
+                                 const note = this.transferNote.trim();
+                                 
+                                 if (isNaN(amount) || amount <= 0 || amount > 9999) {
+                                     alert('请输入有效的金额 (0-9999)');
+                                     return;
+                                 }
+                                 
+                                 const transferMessage = {
+                                     type: 'transfer',
+                                     transferAmount: amount,
+                                     transferNote: note || '转账给你',
+                                     content: `[转账] ¥${amount.toFixed(2)}`
+                                 };
+                                 
+                                 await Alpine.store('chat').sendMessage(chatId, transferMessage);
+                                 
+                                 // Reset inputs and close modal
+                                 this.transferAmount = '';
+                                 this.transferNote = '';
+                                 this.showTransferDialog = false;
+                                 
+                                 // Scroll to bottom
+                                 this.$nextTick(() => {
+                                     const container = this.$el.closest('.chat-page').querySelector('[x-ref=messagesContainer]');
+                                     if (container) {
+                                         container.scrollTop = container.scrollHeight;
+                                     }
+                                 });
+                             },
+                             
+                             async handleImageSelect(event) {
+                                 const file = event.target.files[0];
+                                 if (!file) return;
+                                 
+                                 try {
+                                     const base64 = await window.fileToBase64(file);
+                                     const chatId = Alpine.store('app').currentChatId;
+                                     
+                                     const imageMessage = {
+                                         type: 'image',
+                                         imageUrl: base64,
+                                         content: `[图片] ${file.name}`
+                                     };
+                                     
+                                     await Alpine.store('chat').sendMessage(chatId, imageMessage);
+                                     
+                                     // Clear file input
+                                     event.target.value = '';
+                                     
+                                     // Scroll to bottom
+                                     this.$nextTick(() => {
+                                         const container = this.$el.closest('.chat-page').querySelector('[x-ref=messagesContainer]');
+                                         if (container) {
+                                             container.scrollTop = container.scrollHeight;
+                                         }
+                                     });
+                                     
+                                 } catch (error) {
+                                     console.error('Image upload error:', error);
+                                     alert('图片上传失败: ' + error.message);
+                                 }
+                             }
+                         }">
+                        
+                        <!-- Input Toolbar -->
+                        <div class="input-toolbar">
+                            <button @click="showVoiceInput = true" class="toolbar-button" title="语音消息">
+                                🎤
+                            </button>
+                            <button @click="$refs.imageInput.click()" class="toolbar-button" title="图片">
+                                🖼️
+                            </button>
+                            <button @click="showTransferDialog = true" class="toolbar-button" title="转账">
+                                💰
+                            </button>
+                        </div>
+                        
+                        <!-- Main Input Container -->
                         <div class="input-container">
                             <input 
                                 type="text" 
@@ -225,6 +416,71 @@
                                 </button>
                             </div>
                         </div>
+                        
+                        <!-- Voice Input Modal -->
+                        <div x-show="showVoiceInput" 
+                             x-transition
+                             class="input-modal"
+                             @click.away="showVoiceInput = false">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h3>发送语音消息</h3>
+                                    <button @click="showVoiceInput = false" class="close-button">✕</button>
+                                </div>
+                                <textarea 
+                                    x-model="voiceText" 
+                                    placeholder="输入语音消息内容..."
+                                    class="voice-textarea"
+                                    rows="3"></textarea>
+                                <div class="modal-buttons">
+                                    <button @click="showVoiceInput = false" class="cancel-button">取消</button>
+                                    <button @click="sendVoiceMessage()" class="confirm-button">发送</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Transfer Dialog -->
+                        <div x-show="showTransferDialog" 
+                             x-transition
+                             class="input-modal"
+                             @click.away="showTransferDialog = false">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h3>发送转账</h3>
+                                    <button @click="showTransferDialog = false" class="close-button">✕</button>
+                                </div>
+                                <div class="transfer-form">
+                                    <div class="form-group">
+                                        <label>转账金额</label>
+                                        <input type="number" 
+                                               x-model="transferAmount" 
+                                               placeholder="0.00" 
+                                               min="0" 
+                                               max="9999"
+                                               step="0.01"
+                                               class="transfer-input">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>转账备注</label>
+                                        <input type="text" 
+                                               x-model="transferNote" 
+                                               placeholder="转账给你"
+                                               class="transfer-input">
+                                    </div>
+                                </div>
+                                <div class="modal-buttons">
+                                    <button @click="showTransferDialog = false" class="cancel-button">取消</button>
+                                    <button @click="sendTransferMessage()" class="confirm-button">确认转账</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Image Input -->
+                        <input type="file" 
+                               accept="image/*" 
+                               @change="handleImageSelect($event)"
+                               x-ref="imageInput" 
+                               style="display: none;">
                     </div>
                 </div>
 

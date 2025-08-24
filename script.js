@@ -15,6 +15,29 @@ db.version(7).stores({
     userProfile: '&id, avatar, name, gender, age, bio, updated'
 });
 
+// Version 8: Add message type support for special messages
+db.version(8).stores({
+    chats: '&id, name, type, personaId, created',
+    messages: '&id, chatId, timestamp, role, type', // Add type index for message types
+    apiConfig: '&id',
+    worldBooks: '&id, name, enabled, created',
+    personas: '&id, name, avatar, persona, created',
+    globalSettings: '&id',
+    moments: '&id, userId, userName, timestamp, content',
+    momentsComments: '&id, momentId, userId, userName, timestamp',
+    momentsLikes: '&id, momentId, userId, userName, timestamp',
+    userProfile: '&id, avatar, name, gender, age, bio, updated'
+}).upgrade(tx => {
+    // Migrate existing messages to have type: 'text'
+    console.log('Upgrading database to version 8: Adding message types...');
+    return tx.messages.toCollection().modify(message => {
+        // Set type to 'text' for all existing messages if not already set
+        if (!message.type) {
+            message.type = 'text';
+        }
+    });
+});
+
 // Database upgrade and error handling
 db.open().catch(function(error) {
     console.error('Database failed to open:', error);
@@ -506,11 +529,24 @@ const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色
 7. 当用户说今天你们做了什么事时，顺着ta的话说即可，就当做你们真的做了这件事。
 8.对话内容要符合世界观。
 
+# 特殊消息能力
+你可以发送以下类型的特殊消息：
+
+## 语音消息
+当你想要发送语音消息时（比如想要表达情感、急迫、私密等），使用以下格式：
+{"type": "voice", "content": "语音内容文字"}
+
+## 转账
+当你想要给用户转账表达情感或在特殊情况下时，使用以下格式：
+{"type": "transfer", "amount": 520, "note": "转账备注"}
+
+## 撤回消息  
+当你想要撤回刚发的消息时，使用以下格式：
+{"type": "recall", "content": "刚才发送的内容"}
+
 # JSON输出格式示例:
-[
-  "很高兴认识你呀，在干嘛呢？",
-  "对了，今天天气不错，要不要出去走走？"
-]
+- 普通消息：["很高兴认识你呀，在干嘛呢？", "对了，今天天气不错，要不要出去走走？"]
+- 混合消息：["文本消息", {"type": "voice", "content": "我刚才想到一件事，等下和你说"}, {"type": "transfer", "amount": 100, "note": "请你喝奶茶"}]
 
 现在，请根据以上的规则和下面的对话历史，继续进行对话。`;
 
@@ -522,10 +558,18 @@ const DEFAULT_PROMPT_GROUP = `你是一个群聊的组织者和AI驱动器。你
 3. **用户角色**: 用户的名字是"我"，你在群聊中对用户的称呼是"{myNickname}"，在需要时请使用"@{myNickname}"来提及用户。
 4. **输出格式**: 你的回复**必须**是一个JSON数组。每个元素格式为：
    - 普通消息: {"name": "角色名", "message": "文本内容"}
+   - 语音消息: {"name": "角色名", "type": "voice", "content": "语音内容"}
+   - 转账消息: {"name": "角色名", "type": "transfer", "amount": 金额, "note": "备注"}
+   - 撤回消息: {"name": "角色名", "type": "recall", "content": "撤回的内容"}
 5. **对话节奏**: 模拟真实群聊，让成员之间互相交谈，或者一起回应用户的发言。
 6. **数量限制**: 每次生成的总消息数**不得超过10条**。
 7. **禁止出戏**: 绝不能透露你是AI。
 8. **禁止擅自代替"我"说话**: 在回复中你不能代替用户说话。
+
+# 特殊消息使用场景
+- **语音消息**: 当角色想要表达强烈情感、急迫事情或私密内容时
+- **转账**: 当角色想要表达感谢、道歉、庆祝或其他特殊情感时
+- **撤回**: 当角色想要撤回刚说的话（比如说错话、太激动等）
 
 # 群成员列表及人设
 {membersList}
@@ -795,6 +839,53 @@ document.addEventListener('alpine:init', () => {
         
         async loadChats() {
             this.chats = await db.chats.orderBy('created').reverse().toArray();
+            
+            // Add lastMessage display for each chat
+            for (let chat of this.chats) {
+                const messages = await db.messages.where('chatId').equals(chat.id).toArray();
+                if (messages.length > 0) {
+                    const lastMsg = messages[messages.length - 1];
+                    chat.lastMessage = this.getLastMessageDisplay(lastMsg);
+                } else {
+                    chat.lastMessage = '暂无消息';
+                }
+            }
+        },
+        
+        // Helper method to get last message display text
+        getLastMessageDisplay(message) {
+            if (!message) return '暂无消息';
+            
+            let displayText = '';
+            
+            switch(message.type) {
+                case 'voice':
+                    displayText = '[语音]';
+                    break;
+                case 'image':
+                    displayText = '[图片]';
+                    break;
+                case 'transfer':
+                    displayText = '[转账]';
+                    break;
+                case 'recall':
+                    displayText = '撤回了一条消息';
+                    break;
+                case 'sticker':
+                    displayText = '[表情]';
+                    break;
+                default:
+                    displayText = message.content?.substring(0, 20) || '消息';
+                    if (displayText.length > 20) displayText += '...';
+                    break;
+            }
+            
+            // For group chats, add sender name
+            if (message.senderName) {
+                return `${message.senderName}: ${displayText}`;
+            }
+            
+            return displayText;
         },
         
         async createChat(name, type = 'single', persona = '', personaId = '', avatar = '') {
@@ -826,17 +917,36 @@ document.addEventListener('alpine:init', () => {
             this.currentMessages.sort((a, b) => a.timestamp - b.timestamp);
         },
         
-        async sendMessage(chatId, content, role = 'user') {
-            const message = {
-                id: Date.now().toString(),
-                chatId: chatId,
-                content: content,
-                role: role,
-                timestamp: Date.now()
-            };
+        async sendMessage(chatId, messageData, role = 'user') {
+            // Support both old format (string) and new format (object with type)
+            let message;
+            
+            if (typeof messageData === 'string') {
+                // Legacy text message format
+                message = {
+                    id: Date.now().toString(),
+                    chatId: chatId,
+                    content: messageData,
+                    role: role,
+                    type: 'text',
+                    timestamp: Date.now()
+                };
+            } else {
+                // New message object format with type support
+                message = {
+                    id: Date.now().toString(),
+                    chatId: chatId,
+                    role: role,
+                    timestamp: Date.now(),
+                    type: messageData.type || 'text',
+                    content: messageData.content || '',
+                    ...messageData // Spread additional properties (imageUrl, voiceDuration, etc.)
+                };
+            }
             
             await db.messages.add(message);
             await this.loadMessages(chatId);
+            await this.loadChats(); // Refresh chat list to update last message
             
             // Note: AI response is now triggered manually, not automatically
         },
@@ -1097,45 +1207,85 @@ document.addEventListener('alpine:init', () => {
                 // Process each message
                 for (let i = 0; i < messages.length; i++) {
                     const msg = messages[i];
-                    let messageContent;
-                    let senderName = null;
+                    let aiMessage = null;
                     
                     if (typeof msg === 'string') {
-                        messageContent = msg.trim();
+                        // Simple text message
+                        aiMessage = {
+                            id: `${Date.now()}_${i}`,
+                            chatId: chatId,
+                            content: msg.trim(),
+                            role: 'assistant',
+                            type: 'text',
+                            timestamp: Date.now() + i
+                        };
                     } else if (typeof msg === 'object' && msg !== null) {
-                        if (isGroup && msg.name && msg.message) {
-                            // Group message format
-                            messageContent = msg.message;
-                            senderName = msg.name;
+                        const baseMessage = {
+                            id: `${Date.now()}_${i}`,
+                            chatId: chatId,
+                            role: 'assistant',
+                            timestamp: Date.now() + i
+                        };
+                        
+                        if (isGroup && msg.name && (msg.message || msg.content || msg.type)) {
+                            // Group message - can be text or special type
+                            aiMessage = {
+                                ...baseMessage,
+                                senderName: msg.name
+                            };
+                            
+                            if (msg.type) {
+                                // Special message in group
+                                aiMessage.type = msg.type;
+                                aiMessage.content = msg.content || '';
+                                
+                                // Add type-specific properties
+                                this.addSpecialMessageProperties(aiMessage, msg);
+                            } else {
+                                // Text message in group
+                                aiMessage.type = 'text';
+                                aiMessage.content = msg.message || msg.content || '';
+                            }
                         } else if (msg.type) {
-                            // Special message type (like image, voice, etc.)
-                            // For now, just show the content or description
-                            messageContent = msg.content || msg.description || JSON.stringify(msg);
+                            // Special message type
+                            aiMessage = {
+                                ...baseMessage,
+                                type: msg.type,
+                                content: msg.content || ''
+                            };
+                            
+                            // Add type-specific properties
+                            this.addSpecialMessageProperties(aiMessage, msg);
                         } else {
-                            messageContent = JSON.stringify(msg);
+                            // Fallback: treat as text
+                            aiMessage = {
+                                ...baseMessage,
+                                type: 'text',
+                                content: JSON.stringify(msg)
+                            };
                         }
                     } else {
-                        messageContent = String(msg);
+                        // Fallback for other types
+                        aiMessage = {
+                            id: `${Date.now()}_${i}`,
+                            chatId: chatId,
+                            content: String(msg),
+                            role: 'assistant',
+                            type: 'text',
+                            timestamp: Date.now() + i
+                        };
                     }
                     
                     // Skip empty messages
-                    if (!messageContent || messageContent.trim().length === 0) {
+                    if (!aiMessage || !aiMessage.content || aiMessage.content.trim().length === 0) {
                         continue;
                     }
-                    
-                    const aiMessage = {
-                        id: `${Date.now()}_${i}`,
-                        chatId: chatId,
-                        content: messageContent,
-                        role: 'assistant',
-                        timestamp: Date.now() + i, // Add small offset for ordering
-                        senderName: senderName // For group chats
-                    };
                     
                     await db.messages.add(aiMessage);
                 }
                 
                 await this.loadMessages(chatId);
+                await this.loadChats(); // Refresh chat list to update last message
                 
             } catch (error) {
                 console.error('Error parsing AI response:', error);
@@ -1163,6 +1313,29 @@ document.addEventListener('alpine:init', () => {
                 };
                 await db.messages.add(aiMessage);
                 await this.loadMessages(chatId);
+                await this.loadChats(); // Refresh chat list to update last message
+            }
+        },
+        
+        // Helper method to add special message type properties
+        addSpecialMessageProperties(aiMessage, msgData) {
+            switch (msgData.type) {
+                case 'voice':
+                    aiMessage.voiceDuration = msgData.duration || Math.ceil((msgData.content || '').length / 5);
+                    break;
+                case 'image':
+                    aiMessage.imageUrl = msgData.url || msgData.imageUrl;
+                    break;
+                case 'transfer':
+                    aiMessage.transferAmount = parseFloat(msgData.amount) || 0;
+                    aiMessage.transferNote = msgData.note || '';
+                    break;
+                case 'recall':
+                    aiMessage.originalMessageId = msgData.originalMessageId;
+                    break;
+                case 'sticker':
+                    aiMessage.stickerUrl = msgData.url || msgData.stickerUrl;
+                    break;
             }
         },
         
@@ -1893,7 +2066,48 @@ function chatInterface() {
                 return `${message.senderName}: ${message.content}`;
             }
             return message.content || '消息内容为空';
-        }
+        },
+        
+        
+        // Special message interactions
+        playVoiceMessage(message) {
+            if (message.content) {
+                alert(`语音消息内容：\n${message.content}`);
+            }
+        },
+        
+        viewImage(imageUrl) {
+            if (imageUrl) {
+                // Create a modal to show image
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.8);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10000;
+                    cursor: pointer;
+                `;
+                
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.style.cssText = `
+                    max-width: 90%;
+                    max-height: 90%;
+                    object-fit: contain;
+                `;
+                
+                modal.appendChild(img);
+                modal.onclick = () => modal.remove();
+                document.body.appendChild(modal);
+            }
+        },
+        
     }
 }
 

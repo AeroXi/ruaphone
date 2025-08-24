@@ -519,6 +519,319 @@ body {
     margin-top: 4px;
 }
 
+/* Special Message Types - WeChat Style */
+
+/* Recall Message */
+.message-recall {
+    text-align: center;
+    color: #999;
+    font-size: 12px;
+    padding: 4px 0;
+    margin: 4px 0;
+}
+
+/* Voice Message */
+.voice-message {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #95ec69;
+    border-radius: 8px;
+    min-width: 100px;
+    max-width: 200px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.message-bubble.assistant .voice-message,
+.message-bubble.ai .voice-message {
+    background: white;
+}
+
+.voice-message:hover {
+    opacity: 0.8;
+}
+
+.voice-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.voice-waveform {
+    display: flex;
+    gap: 2px;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.voice-waveform span {
+    width: 2px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 1px;
+    animation: wave 1.5s ease-in-out infinite;
+}
+
+.voice-waveform span:nth-child(1) { height: 8px; animation-delay: 0s; }
+.voice-waveform span:nth-child(2) { height: 12px; animation-delay: 0.3s; }
+.voice-waveform span:nth-child(3) { height: 16px; animation-delay: 0.6s; }
+.voice-waveform span:nth-child(4) { height: 12px; animation-delay: 0.9s; }
+.voice-waveform span:nth-child(5) { height: 8px; animation-delay: 1.2s; }
+
+@keyframes wave {
+    0%, 100% { height: 8px; opacity: 0.4; }
+    50% { height: 16px; opacity: 1; }
+}
+
+.voice-duration {
+    font-size: 12px;
+    color: rgba(0,0,0,0.6);
+    flex-shrink: 0;
+}
+
+/* Image Message */
+.image-message {
+    max-width: 200px;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.image-message img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: opacity 0.2s;
+}
+
+.image-message img:hover {
+    opacity: 0.8;
+}
+
+/* Transfer Message */
+.transfer-message {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: linear-gradient(135deg, #FFA54F 0%, #FF8C42 100%);
+    color: white;
+    border-radius: 8px;
+    width: 200px;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.transfer-message:hover {
+    transform: translateY(-1px);
+}
+
+.transfer-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.transfer-content {
+    flex: 1;
+}
+
+.transfer-title {
+    font-size: 12px;
+    opacity: 0.9;
+    margin-bottom: 4px;
+}
+
+.transfer-amount {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.transfer-note {
+    font-size: 12px;
+    opacity: 0.8;
+    line-height: 1.2;
+}
+
+/* Sticker Message */
+.sticker-message {
+    display: inline-block;
+}
+
+.sticker-message img {
+    width: auto;
+    height: 100px;
+    max-width: 120px;
+    border-radius: 4px;
+}
+
+/* Message Content Adjustments for Special Types */
+.message-voice .message-content,
+.message-image .message-content,
+.message-transfer .message-content,
+.message-sticker .message-content {
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+}
+
+.message-text-content {
+    /* Keep original padding for text messages */
+    padding: inherit;
+}
+
+/* Input Toolbar Styles */
+.input-toolbar {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #f8f8f8;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.toolbar-button {
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.toolbar-button:hover {
+    background: #f0f0f0;
+}
+
+.toolbar-button:active {
+    background: #e0e0e0;
+}
+
+/* Input Modal Styles */
+.input-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 300px;
+    padding: 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.close-button {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #999;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.voice-textarea {
+    width: 100%;
+    border: none;
+    resize: none;
+    outline: none;
+    padding: 16px 20px;
+    font-size: 14px;
+    line-height: 1.4;
+    font-family: inherit;
+}
+
+.transfer-form {
+    padding: 16px 20px;
+}
+
+.form-group {
+    margin-bottom: 12px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.transfer-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+}
+
+.transfer-input:focus {
+    border-color: #007AFF;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 8px;
+    padding: 16px 20px;
+    border-top: 1px solid #eee;
+}
+
+.cancel-button, .confirm-button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.cancel-button {
+    background: #f8f8f8;
+    color: #666;
+}
+
+.cancel-button:hover {
+    background: #e8e8e8;
+}
+
+.confirm-button {
+    background: #007AFF;
+    color: white;
+}
+
+.confirm-button:hover {
+    background: #0056CC;
+}
+
 /* Avatar styles */
 .avatar {
     width: 32px;
