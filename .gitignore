@@ -74,3 +74,6 @@ playwright/.cache/
 # Screenshots and videos from testing
 screenshots/
 videos/
+
+# Test data
+local_chat_test/
