@@ -498,6 +498,15 @@ body {
 
 /* Special Message Types - WeChat Style */
 
+/* Remove bubble background for special message types */
+.message-content.no-bubble {
+    background: transparent !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: none;
+}
+
 /* Recall Message */
 .message-recall {
     text-align: center;

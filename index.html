@@ -196,7 +196,7 @@
                                         </div>
 
                                         <!-- Message Content -->
-                                        <div class="message-content content">
+                                        <div class="message-content content" :class="{ 'no-bubble': message.type === 'voice' || message.type === 'image' || message.type === 'transfer' || message.type === 'sticker' }">
                                             
                                             <!-- Text Message -->
                                             <template x-if="message.type === 'text' || !message.type">
