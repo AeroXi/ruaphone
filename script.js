@@ -958,7 +958,7 @@ document.addEventListener('alpine:init', () => {
             // 根据全局设置启用调试模式
             window.promptBuilder.setDebugMode(globalSettings.debugPrompt);
             
-            if (!apiConfig.apiKey || !apiConfig.baseURL) {
+            if (!apiConfig.apiKey || (apiConfig.apiType !== 'gemini' && !apiConfig.baseURL)) {
                 const errorMessage = {
                     id: Date.now().toString(),
                     chatId: chatId,
@@ -1096,7 +1096,7 @@ document.addEventListener('alpine:init', () => {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'x-goog-api-key': apiKey
+                            'X-goog-api-key': apiKey
                         },
                         body: JSON.stringify({
                             contents: contents,
@@ -1443,8 +1443,11 @@ document.addEventListener('alpine:init', () => {
             if (newType === 'gemini') {
                 this.apiConfig.model = 'gemini-1.5-flash';
                 this.apiConfig.baseURL = ''; // Gemini doesn't need base URL
-                // Clear OpenAI models when switching to Gemini
+                // Clear models and auto-fetch Gemini models
                 this.availableModels = [];
+                if (this.apiConfig.apiKey) {
+                    this.fetchAvailableModels();
+                }
             } else {
                 this.apiConfig.model = 'gpt-3.5-turbo';
                 if (!this.apiConfig.baseURL) {
@@ -1457,12 +1460,6 @@ document.addEventListener('alpine:init', () => {
         
         // Fetch available models from API
         async fetchAvailableModels() {
-            // Only fetch for OpenAI-compatible APIs
-            if (this.apiConfig.apiType === 'gemini') {
-                this.availableModels = [];
-                return;
-            }
-            
             // Check if we need to fetch (cache for 5 minutes)
             const now = Date.now();
             const cacheTime = 5 * 60 * 1000; // 5 minutes
@@ -1471,10 +1468,19 @@ document.addEventListener('alpine:init', () => {
                 return this.availableModels;
             }
             
-            if (!this.apiConfig.baseURL || !this.apiConfig.apiKey) {
-                console.log('Cannot fetch models: missing baseURL or apiKey');
-                this.modelsError = '请先配置 API 地址和密钥';
-                return [];
+            // For Gemini, check API key; for others, check baseURL and apiKey
+            if (this.apiConfig.apiType === 'gemini') {
+                if (!this.apiConfig.apiKey) {
+                    console.log('Cannot fetch Gemini models: missing apiKey');
+                    this.modelsError = '请先配置 Gemini API 密钥';
+                    return [];
+                }
+            } else {
+                if (!this.apiConfig.baseURL || !this.apiConfig.apiKey) {
+                    console.log('Cannot fetch models: missing baseURL or apiKey');
+                    this.modelsError = '请先配置 API 地址和密钥';
+                    return [];
+                }
             }
             
             this.modelsLoading = true;
@@ -1484,22 +1490,42 @@ document.addEventListener('alpine:init', () => {
                 console.log('Fetching available models...');
                 
                 const apiKey = this.getRandomApiKey(this.apiConfig.apiKey);
-                const modelsURL = buildApiURL(this.apiConfig.baseURL, '/models');
+                let modelsURL;
+                let requestOptions;
                 
-                const response = await fetch(modelsURL, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${apiKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
+                if (this.apiConfig.apiType === 'gemini') {
+                    // Gemini API models endpoint
+                    modelsURL = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+                    requestOptions = {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    };
+                } else {
+                    // OpenAI-compatible APIs
+                    modelsURL = buildApiURL(this.apiConfig.baseURL, '/models');
+                    requestOptions = {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json'
+                        }
+                    };
+                }
+                
+                const response = await fetch(modelsURL, requestOptions);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
                     let errorMessage = `HTTP ${response.status}`;
                     try {
                         const errorData = JSON.parse(errorText);
-                        errorMessage = errorData.error?.message || errorMessage;
+                        if (this.apiConfig.apiType === 'gemini') {
+                            errorMessage = errorData.error?.message || errorMessage;
+                        } else {
+                            errorMessage = errorData.error?.message || errorMessage;
+                        }
                     } catch {
                         // Use HTTP status if can't parse error
                     }
@@ -1509,20 +1535,45 @@ document.addEventListener('alpine:init', () => {
                 const data = await response.json();
                 console.log('Models API response:', data);
                 
-                if (!data.data || !Array.isArray(data.data)) {
-                    throw new Error('Invalid models API response format');
-                }
+                let models;
                 
-                // Extract and sort models
-                const models = data.data
-                    .filter(model => model.id) // Only models with valid IDs
-                    .map(model => ({
-                        id: model.id,
-                        name: model.id, // Use ID as display name
-                        owned_by: model.owned_by || 'unknown',
-                        created: model.created || 0
-                    }))
-                    .sort((a, b) => a.id.localeCompare(b.id)); // Sort alphabetically
+                if (this.apiConfig.apiType === 'gemini') {
+                    // Parse Gemini API response
+                    if (!data.models || !Array.isArray(data.models)) {
+                        throw new Error('Invalid Gemini models API response format');
+                    }
+                    
+                    models = data.models
+                        .filter(model => model.name && model.supportedGenerationMethods?.includes('generateContent'))
+                        .map(model => {
+                            // Extract model ID from name (e.g., "models/gemini-1.5-flash-001" -> "gemini-1.5-flash-001")
+                            const modelId = model.name.replace('models/', '');
+                            return {
+                                id: modelId,
+                                name: model.displayName || modelId,
+                                owned_by: 'google',
+                                version: model.version || '',
+                                inputTokenLimit: model.inputTokenLimit || 0,
+                                outputTokenLimit: model.outputTokenLimit || 0
+                            };
+                        })
+                        .sort((a, b) => a.id.localeCompare(b.id));
+                } else {
+                    // Parse OpenAI-compatible API response
+                    if (!data.data || !Array.isArray(data.data)) {
+                        throw new Error('Invalid models API response format');
+                    }
+                    
+                    models = data.data
+                        .filter(model => model.id) // Only models with valid IDs
+                        .map(model => ({
+                            id: model.id,
+                            name: model.id, // Use ID as display name
+                            owned_by: model.owned_by || 'unknown',
+                            created: model.created || 0
+                        }))
+                        .sort((a, b) => a.id.localeCompare(b.id)); // Sort alphabetically
+                }
                 
                 this.availableModels = models;
                 this.modelsLastFetch = now;
@@ -1878,11 +1929,9 @@ function phoneApp() {
                 await Alpine.store('profile').loadProfile();
                 await Alpine.store('moments').loadMoments();
                 
-                // Auto-fetch models for OpenAI-compatible APIs after loading config
+                // Auto-fetch models for all APIs after loading config
                 setTimeout(() => {
-                    if (Alpine.store('settings').apiConfig.apiType !== 'gemini') {
-                        Alpine.store('settings').fetchAvailableModels();
-                    }
+                    Alpine.store('settings').fetchAvailableModels();
                 }, 1000); // Delay to let UI load
             } catch (error) {
                 console.error('Failed to load data:', error);
@@ -1980,10 +2029,8 @@ function phoneApp() {
             try {
                 await Alpine.store('settings').saveConfig();
                 
-                // Auto-fetch models after saving config for OpenAI-compatible APIs
-                if (Alpine.store('settings').apiConfig.apiType !== 'gemini') {
-                    Alpine.store('settings').refreshModels();
-                }
+                // Auto-fetch models after saving config for all APIs
+                Alpine.store('settings').refreshModels();
                 
                 alert('API设置已保存');
             } catch (error) {

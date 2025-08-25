@@ -10,7 +10,7 @@
     
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=1.6.0">
+    <link rel="stylesheet" href="styles.css?v=1.6.2">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -93,7 +93,7 @@
                     
                     <!-- Version info -->
                     <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #999; font-size: 10px; text-align: center;">
-                        RuaPhone v1.6.0
+                        RuaPhone v1.6.2
                     </div>
                 </div>
 
@@ -558,7 +558,7 @@
                             box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
                         ">
                             <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">
-                                🚀 RuaPhone v1.6.0
+                                🚀 RuaPhone v1.6.2
                             </div>
                             <div style="font-size: 12px; opacity: 0.9;">
                                 可爱的小手机rua~
@@ -591,14 +591,53 @@
                         <div class="form-group">
                             <label class="form-label">模型</label>
                             
-                            <!-- Gemini Models -->
+                            <!-- Gemini Models (Dynamic) -->
                             <template x-if="$store.settings.apiConfig.apiType === 'gemini'">
-                                <select class="form-input" x-model="$store.settings.apiConfig.model">
-                                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                                    <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (实验版)</option>
-                                    <option value="gemini-exp-1206">Gemini Experimental 1206</option>
-                                </select>
+                                <div>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <select class="form-input" x-model="$store.settings.apiConfig.model" style="flex: 1;">
+                                            <option value="" disabled>
+                                                <span x-show="$store.settings.modelsLoading">正在加载模型...</span>
+                                                <span x-show="!$store.settings.modelsLoading && $store.settings.availableModels.length === 0">请先配置 Gemini API 密钥</span>
+                                            </option>
+                                            <template x-for="model in $store.settings.availableModels" :key="model.id">
+                                                <option :value="model.id" x-text="model.name || model.id"></option>
+                                            </template>
+                                        </select>
+                                        <button type="button" 
+                                            class="button" 
+                                            style="padding: 8px 12px; font-size: 14px; background: #007AFF;" 
+                                            @click="$store.settings.refreshModels()"
+                                            :disabled="$store.settings.modelsLoading"
+                                            :class="{ 'opacity-50 cursor-not-allowed': $store.settings.modelsLoading }">
+                                            拉取
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Loading indicator -->
+                                    <div x-show="$store.settings.modelsLoading" 
+                                        class="form-help" 
+                                        style="color: #007AFF; margin-top: 8px;">
+                                        <i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>
+                                        正在从 Gemini API 获取模型列表...
+                                    </div>
+                                    
+                                    <!-- Error message -->
+                                    <div x-show="$store.settings.modelsError" 
+                                        class="form-help" 
+                                        style="color: #FF3B30; margin-top: 8px;">
+                                        <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
+                                        <span x-text="$store.settings.modelsError"></span>
+                                    </div>
+                                    
+                                    <!-- Success message -->
+                                    <div x-show="!$store.settings.modelsError && !$store.settings.modelsLoading && $store.settings.availableModels.length > 0" 
+                                        class="form-help" 
+                                        style="color: #34C759; margin-top: 8px;">
+                                        <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
+                                        已获取 <span x-text="$store.settings.availableModels.length"></span> 个 Gemini 模型
+                                    </div>
+                                </div>
                             </template>
                             
                             <!-- OpenAI-compatible Models -->
@@ -1288,7 +1327,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=1.6.0"></script>
-    <script src="version-update.js?v=1.6.0"></script>
+    <script src="script.js?v=1.6.2"></script>
+    <script src="version-update.js?v=1.6.2"></script>
 </body>
 </html>
