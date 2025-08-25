@@ -569,7 +569,7 @@
                             <label class="form-label">API类型</label>
                             <select class="form-input" x-model="$store.settings.apiConfig.apiType" 
                                 @change="$store.settings.updateApiType($event.target.value)">
-                                <option value="openai">OpenAI</option>
+                                <option value="openai">OpenAI （api站选这个）</option>
                                 <option value="gemini">Google Gemini</option>
                             </select>
                         </div>
@@ -699,7 +699,7 @@
                                     <p style="margin: 0 0 8px 0; font-weight: 500;">📋 使用说明：</p>
                                     <p style="margin: 0 0 4px 0;">1. 访问 <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #1976d2;">Google AI Studio</a> 获取免费API密钥</p>
                                     <p style="margin: 0 0 4px 0;">2. API密钥格式：AIza开头的字符串</p>
-                                    <p style="margin: 0;">3. 推荐使用Gemini 1.5 Flash（速度快，免费额度高）</p>
+                                    <p style="margin: 0;">3. 推荐使用Gemini 2.5</p>
                                 </div>
                             </div>
                         </template>
