@@ -528,6 +528,7 @@ const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色
 6. 如果用户超过一个小时没有发送消息，则默认结束当前话题，因为用户可能是去办什么事。你可以询问，例如"怎么这么久没回我？刚才有事吗？"
 7. 当用户说今天你们做了什么事时，顺着ta的话说即可，就当做你们真的做了这件事。
 8.对话内容要符合世界观。
+9.你能理解用户的引用消息，并且在对话中需要引用时引用用户的消息。特别是用户讲了多个话题，避免造成歧义就引用。引用消息是普通文本消息，格式是 quote<被引用消息>消息内容
 
 # 特殊消息能力
 你可以发送以下类型的特殊消息：
@@ -1039,6 +1040,7 @@ document.addEventListener('alpine:init', () => {
                 // Make API call
                 const isGemini = apiConfig.apiType === 'gemini';
                 let response;
+                let requestBody; // Store request body for debugging
                 
                 if (isGemini) {
                     // Gemini API format - convert OpenAI format to Gemini format
@@ -1103,40 +1105,52 @@ document.addEventListener('alpine:init', () => {
                     const apiKey = Alpine.store('settings').getRandomApiKey(apiConfig.apiKey);
                     const model = apiConfig.model || 'gemini-1.5-flash';
                     
+                    // Prepare request body for debugging
+                    requestBody = {
+                        contents: contents,
+                        generationConfig: {
+                            temperature: 0.8,
+                            topK: 40,
+                            topP: 0.95,
+                            maxOutputTokens: 2048,
+                            candidateCount: 1
+                        },
+                        safetySettings: [
+                            {
+                                category: "HARM_CATEGORY_HARASSMENT",
+                                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                            },
+                            {
+                                category: "HARM_CATEGORY_HATE_SPEECH", 
+                                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                            },
+                            {
+                                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                            },
+                            {
+                                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                                threshold: "BLOCK_MEDIUM_AND_ABOVE"
+                            }
+                        ]
+                    };
+                    
+                    // Debug output: complete request body as string
+                    if (globalSettings.debugPrompt) {
+                        console.group('🚀 API Request Body (Gemini)');
+                        console.log('URL:', `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`);
+                        console.log('📤 REQUEST JSON STRING:');
+                        console.log(JSON.stringify(requestBody));
+                        console.groupEnd();
+                    }
+                    
                     response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-goog-api-key': apiKey
                         },
-                        body: JSON.stringify({
-                            contents: contents,
-                            generationConfig: {
-                                temperature: 0.8,
-                                topK: 40,
-                                topP: 0.95,
-                                maxOutputTokens: 2048,
-                                candidateCount: 1
-                            },
-                            safetySettings: [
-                                {
-                                    category: "HARM_CATEGORY_HARASSMENT",
-                                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                                },
-                                {
-                                    category: "HARM_CATEGORY_HATE_SPEECH", 
-                                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                                },
-                                {
-                                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                                },
-                                {
-                                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                                    threshold: "BLOCK_MEDIUM_AND_ABOVE"
-                                }
-                            ]
-                        })
+                        body: JSON.stringify(requestBody)
                     });
                     
                     if (!response.ok) {
@@ -1151,6 +1165,15 @@ document.addEventListener('alpine:init', () => {
                     }
                     
                     const data = await response.json();
+                    
+                    // Debug output: API response
+                    if (globalSettings.debugPrompt) {
+                        console.group('📥 API Response (Gemini)');
+                        console.log('📥 RESPONSE JSON STRING:');
+                        console.log(JSON.stringify(data));
+                        console.groupEnd();
+                    }
+                    
                     const aiResponseContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
                     
                     if (!aiResponseContent) {
@@ -1164,18 +1187,30 @@ document.addEventListener('alpine:init', () => {
                     const apiKey = Alpine.store('settings').getRandomApiKey(apiConfig.apiKey);
                     const apiURL = buildApiURL(apiConfig.baseURL);
                     
+                    // Prepare request body for debugging
+                    requestBody = {
+                        model: apiConfig.model,
+                        messages: messagesPayload,
+                        temperature: 0.8,
+                        stream: false
+                    };
+                    
+                    // Debug output: complete request body as string
+                    if (globalSettings.debugPrompt) {
+                        console.group('🚀 API Request Body (OpenAI)');
+                        console.log('URL:', apiURL);
+                        console.log('📤 REQUEST JSON STRING:');
+                        console.log(JSON.stringify(requestBody));
+                        console.groupEnd();
+                    }
+                    
                     response = await fetch(apiURL, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${apiKey}`,
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            model: apiConfig.model,
-                            messages: messagesPayload,
-                            temperature: 0.8,
-                            stream: false
-                        })
+                        body: JSON.stringify(requestBody)
                     });
                     
                     if (!response.ok) {
@@ -1184,6 +1219,15 @@ document.addEventListener('alpine:init', () => {
                     }
                     
                     const data = await response.json();
+                    
+                    // Debug output: API response
+                    if (globalSettings.debugPrompt) {
+                        console.group('📥 API Response (OpenAI)');
+                        console.log('📥 RESPONSE JSON STRING:');
+                        console.log(JSON.stringify(data));
+                        console.groupEnd();
+                    }
+                    
                     const aiResponseContent = data.choices?.[0]?.message?.content;
                     
                     if (!aiResponseContent) {
