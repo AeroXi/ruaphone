@@ -836,6 +836,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.store('chat', {
         chats: [],
         currentMessages: [],
+        quotedMessage: null, // Store the message being quoted
         
         async loadChats() {
             this.chats = await db.chats.orderBy('created').reverse().toArray();
@@ -922,11 +923,21 @@ document.addEventListener('alpine:init', () => {
             let message;
             
             if (typeof messageData === 'string') {
+                // Check if there's a quoted message
+                let content = messageData;
+                if (this.quotedMessage && role === 'user') {
+                    // Format with quote: quote<quoted content>actual message
+                    const quotedContent = this.quotedMessage.content || '';
+                    content = `quote<${quotedContent}>${messageData}`;
+                    // Clear quoted message after using
+                    this.quotedMessage = null;
+                }
+                
                 // Legacy text message format
                 message = {
                     id: Date.now().toString(),
                     chatId: chatId,
-                    content: messageData,
+                    content: content,
                     role: role,
                     type: 'text',
                     timestamp: Date.now()
@@ -1887,6 +1898,25 @@ document.addEventListener('alpine:init', () => {
             } catch (error) {
                 console.error('❌ Failed to delete message:', error);
             }
+        },
+        
+        async quoteMessage() {
+            if (!this.messageId) return;
+            
+            console.log('💬 Quoting message:', this.messageId);
+            const chatStore = Alpine.store('chat');
+            
+            // Find the message to quote - use currentMessages instead of messages
+            const message = chatStore.currentMessages.find(m => m.id === this.messageId);
+            if (!message) {
+                console.error('Message not found:', this.messageId);
+                return;
+            }
+            
+            // Set the quoted message in chat store
+            chatStore.quotedMessage = message;
+            
+            this.hide();
         }
     });
 
@@ -2224,6 +2254,10 @@ function chatInterface() {
             return Alpine.store('chat').currentMessages;
         },
         
+        clearQuote() {
+            Alpine.store('chat').quotedMessage = null;
+        },
+        
         async sendMessage() {
             if (!this.newMessage.trim()) return;
             
@@ -2231,6 +2265,7 @@ function chatInterface() {
             const message = this.newMessage.trim();
             this.newMessage = '';
             
+            // Send message (quote will be handled in chat store)
             await Alpine.store('chat').sendMessage(chatId, message);
             
             // Scroll to bottom

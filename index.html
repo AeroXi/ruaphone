@@ -208,8 +208,38 @@
                                             
                                             <!-- Text Message -->
                                             <template x-if="message.type === 'text' || !message.type">
-                                                <div class="message-text-content">
-                                                    <div class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
+                                                <div class="message-text-content" x-data="{ 
+                                                    parseQuote(content) {
+                                                        const quoteMatch = content?.match(/^quote<([^>]*)>(.*)/s);
+                                                        if (quoteMatch) {
+                                                            return {
+                                                                quoted: quoteMatch[1],
+                                                                text: quoteMatch[2]
+                                                            };
+                                                        }
+                                                        return null;
+                                                    },
+                                                    get parsedContent() {
+                                                        const msgContent = message.senderName ? 
+                                                            (message.senderName + ': ' + message.content) : 
+                                                            (message.content || '消息内容为空');
+                                                        return this.parseQuote(msgContent);
+                                                    }
+                                                }">
+                                                    <!-- Message with quote -->
+                                                    <template x-if="parsedContent">
+                                                        <div>
+                                                            <div class="quoted-content">
+                                                                <div class="quote-bar"></div>
+                                                                <div class="quote-text" x-text="parsedContent.quoted"></div>
+                                                            </div>
+                                                            <div class="message-text" x-text="parsedContent.text"></div>
+                                                        </div>
+                                                    </template>
+                                                    <!-- Regular message without quote -->
+                                                    <template x-if="!parsedContent">
+                                                        <div class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
+                                                    </template>
                                                 </div>
                                             </template>
                                             
@@ -281,6 +311,10 @@
                                  :style="`left: ${$store.messageTooltip.x}px; top: ${$store.messageTooltip.y}px;`"
                                  @keydown.escape.window="$store.messageTooltip.hide()">
                                 <div class="message-tooltip-card">
+                                    <button role="menuitem" @click="$store.messageTooltip.quoteMessage()">
+                                        <i class="fas fa-quote-left"></i>
+                                        <span>引用</span>
+                                    </button>
                                     <button role="menuitem" @click="$store.messageTooltip.deleteMessage()">
                                         <i class="fas fa-trash"></i>
                                         <span>删除</span>
@@ -404,6 +438,28 @@
                             </button>
                             <button @click="showTransferDialog = true" class="toolbar-button" title="转账">
                                 💰
+                            </button>
+                        </div>
+                        
+                        <!-- Quoted Message Display -->
+                        <div x-show="$store.chat.quotedMessage" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 transform translate-y-full"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             x-transition:leave="transition ease-in duration-150"
+                             x-transition:leave-start="opacity-100 transform translate-y-0"
+                             x-transition:leave-end="opacity-0 transform translate-y-full"
+                             class="quoted-message-bar">
+                            <div class="quoted-message-content">
+                                <div class="quoted-message-indicator">
+                                    <i class="fas fa-reply"></i>
+                                    <span>回复</span>
+                                    <span class="quoted-name" x-text="$store.chat.quotedMessage?.role === 'user' ? '我' : 'AI'"></span>
+                                </div>
+                                <div class="quoted-text" x-text="$store.chat.quotedMessage?.content?.substring(0, 50) + ($store.chat.quotedMessage?.content?.length > 50 ? '...' : '')"></div>
+                            </div>
+                            <button class="quoted-message-close" @click="$store.chat.quotedMessage = null">
+                                <i class="fas fa-times"></i>
                             </button>
                         </div>
                         
