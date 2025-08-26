@@ -435,6 +435,9 @@ body {
     display: flex;
     align-items: flex-end;
     gap: 8px;
+    /* Additional prevention for iOS text selection */
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .message.user,
@@ -464,6 +467,12 @@ body {
     position: relative;
     max-width: 280px;
     word-wrap: break-word;
+    /* Prevent text selection on long press - especially for iOS */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
 
 /* User Message Styles (Both Original and Community Compatible) */
@@ -488,6 +497,12 @@ body {
     font-size: 16px;
     line-height: 1.4;
     word-wrap: break-word;
+    /* Ensure text inside message is also not selectable on iOS */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
 }
 
 .message-time {
@@ -1975,6 +1990,65 @@ body {
 
 .delete-btn:hover {
     color: #FF3B30;
+}
+
+/* Message Tooltip Styles */
+.message-tooltip-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    background: transparent;
+}
+
+.message-tooltip-menu {
+    position: fixed;
+    z-index: 1000;
+    transform: translate(-50%, -100%) translateY(-8px);
+    will-change: transform, left, top;
+    transition: opacity 0.2s ease;
+}
+
+.message-tooltip-menu.bottom {
+    transform: translate(-50%, 0) translateY(8px);
+}
+
+.message-tooltip-card {
+    background: #111;
+    color: white;
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    display: flex;
+    gap: 2px;
+    align-items: center;
+}
+
+.message-tooltip-card button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background-color 0.2s ease;
+    white-space: nowrap;
+}
+
+.message-tooltip-card button:hover,
+.message-tooltip-card button:focus {
+    background: rgba(255, 255, 255, 0.1);
+    outline: none;
+}
+
+.message-tooltip-card button i {
+    font-size: 12px;
 }
 
 .form-hint {

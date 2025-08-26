@@ -1766,6 +1766,130 @@ document.addEventListener('alpine:init', () => {
         }
     });
 
+    Alpine.store('messageTooltip', {
+        show: false,
+        x: 0,
+        y: 0,
+        messageId: null,
+        placement: 'top', // 'top' | 'bottom'
+        longPressTimer: null,
+        longPressDelay: 350, // 350ms for long press
+        moveThreshold: 8, // 8px movement threshold
+        startX: 0,
+        startY: 0,
+        isLongPressTriggered: false, // Track if tooltip was shown via long press
+        
+        init() {
+            console.log('📱 Message Tooltip Store initialized');
+        },
+        
+        showForMessage(element, messageId) {
+            console.log('🎯 showForMessage called:', { element, messageId });
+            const rect = element.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            
+            // Check if there's enough space above
+            const wantsTop = rect.top >= 90;
+            this.placement = wantsTop ? 'top' : 'bottom';
+            
+            this.x = Math.round(centerX);
+            this.y = Math.round(wantsTop ? rect.top : rect.bottom);
+            this.messageId = messageId;
+            this.show = true;
+            console.log('📍 Tooltip position:', { x: this.x, y: this.y, placement: this.placement, show: this.show });
+        },
+        
+        hide() {
+            this.show = false;
+            this.messageId = null;
+            this.isLongPressTriggered = false;
+            this.cancelLongPress();
+        },
+        
+        startLongPress(event, element, messageId) {
+            console.log('👆 startLongPress:', { button: event.button, messageId, element });
+            
+            // Reset the flag
+            this.isLongPressTriggered = false;
+            
+            // Right click on desktop - show immediately
+            if (event.button === 2) {
+                console.log('🖱️ Right click detected');
+                this.showForMessage(element, messageId);
+                return;
+            }
+            
+            // Left click/touch - start long press timer
+            this.startX = event.clientX;
+            this.startY = event.clientY;
+            
+            console.log('⏱️ Starting long press timer for', this.longPressDelay, 'ms');
+            this.longPressTimer = setTimeout(() => {
+                console.log('⏰ Long press timer fired!');
+                this.isLongPressTriggered = true; // Mark as triggered by long press
+                this.showForMessage(element, messageId);
+                this.longPressTimer = null;
+            }, this.longPressDelay);
+        },
+        
+        endLongPress() {
+            console.log('☝️ endLongPress, isLongPressTriggered:', this.isLongPressTriggered);
+            
+            // Only cancel if tooltip hasn't been shown yet
+            // If tooltip is already shown (isLongPressTriggered = true), don't hide it
+            if (!this.isLongPressTriggered) {
+                this.cancelLongPress();
+            }
+        },
+        
+        moveLongPress(event) {
+            if (!this.longPressTimer) return;
+            
+            const dx = event.clientX - this.startX;
+            const dy = event.clientY - this.startY;
+            const distance = Math.hypot(dx, dy);
+            
+            // Cancel if moved too much
+            if (distance > this.moveThreshold) {
+                console.log('👋 Cancelled long press due to movement:', distance, 'px');
+                this.cancelLongPress();
+            }
+        },
+        
+        cancelLongPress() {
+            if (this.longPressTimer) {
+                console.log('❌ Cancelling long press timer');
+                clearTimeout(this.longPressTimer);
+                this.longPressTimer = null;
+            }
+        },
+        
+        async deleteMessage() {
+            if (!this.messageId) return;
+            
+            console.log('🗑️ Deleting message:', this.messageId);
+            const messageId = this.messageId;
+            const chatStore = Alpine.store('chat');
+            
+            try {
+                // Delete from database
+                await db.messages.delete(messageId);
+                console.log('✅ Message deleted from database');
+                
+                // Reload messages for current chat
+                const currentChatId = Alpine.store('app').currentChatId;
+                if (currentChatId) {
+                    await chatStore.loadMessages(currentChatId);
+                    await chatStore.loadChats(); // Update last message display
+                }
+                
+                this.hide();
+            } catch (error) {
+                console.error('❌ Failed to delete message:', error);
+            }
+        }
+    });
+
     Alpine.store('moments', {
         moments: [],
         comments: [],

@@ -196,7 +196,15 @@
                                         </div>
 
                                         <!-- Message Content -->
-                                        <div class="message-content content" :class="{ 'no-bubble': message.type === 'voice' || message.type === 'image' || message.type === 'transfer' || message.type === 'sticker' }">
+                                        <div class="message-content content" 
+                                             :class="{ 'no-bubble': message.type === 'voice' || message.type === 'image' || message.type === 'transfer' || message.type === 'sticker' }"
+                                             @pointerdown="$store.messageTooltip.startLongPress($event, $el, message.id)"
+                                             @pointerup="$store.messageTooltip.endLongPress()"
+                                             @pointercancel="$store.messageTooltip.cancelLongPress()"
+                                             @pointerleave="$store.messageTooltip.cancelLongPress()"
+                                             @pointermove="$store.messageTooltip.moveLongPress($event)"
+                                             @contextmenu.prevent="$store.messageTooltip.showForMessage($el, message.id)"
+                                             style="user-select: none; -webkit-touch-callout: none; touch-action: manipulation;">
                                             
                                             <!-- Text Message -->
                                             <template x-if="message.type === 'text' || !message.type">
@@ -256,6 +264,31 @@
                         </template>
                         
                     </div>
+                    
+                    <!-- Message Tooltip -->
+                    <template x-if="$store.messageTooltip.show">
+                        <div>
+                            <!-- Backdrop -->
+                            <div class="message-tooltip-backdrop" 
+                                 @click="$store.messageTooltip.hide()"
+                                 @wheel="$store.messageTooltip.hide()"></div>
+                            
+                            <!-- Tooltip Card -->
+                            <div class="message-tooltip-menu" 
+                                 :class="$store.messageTooltip.placement"
+                                 role="menu" 
+                                 aria-label="消息菜单"
+                                 :style="`left: ${$store.messageTooltip.x}px; top: ${$store.messageTooltip.y}px;`"
+                                 @keydown.escape.window="$store.messageTooltip.hide()">
+                                <div class="message-tooltip-card">
+                                    <button role="menuitem" @click="$store.messageTooltip.deleteMessage()">
+                                        <i class="fas fa-trash"></i>
+                                        <span>删除</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                     
                     <!-- Input Area -->
                     <div class="chat-input" 
