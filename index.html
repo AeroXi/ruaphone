@@ -224,22 +224,40 @@
                                                             (message.senderName + ': ' + message.content) : 
                                                             (message.content || '消息内容为空');
                                                         return this.parseQuote(msgContent);
+                                                    },
+                                                    get isEditing() {
+                                                        return $store.chat.editingMessageId === message.id;
                                                     }
                                                 }">
-                                                    <!-- Message with quote -->
-                                                    <template x-if="parsedContent">
-                                                        <div>
+                                                    <!-- Edit mode -->
+                                                    <div x-show="isEditing" class="message-edit-mode">
+                                                        <textarea 
+                                                            x-model="$store.chat.editingContent"
+                                                            @keydown.escape="$store.chat.cancelEdit()"
+                                                            @keydown.enter.ctrl="$store.chat.saveEdit()"
+                                                            @keydown.enter.meta="$store.chat.saveEdit()"
+                                                            class="message-edit-input"
+                                                            :placeholder="message.content"
+                                                            x-init="$el.focus(); $el.setSelectionRange($el.value.length, $el.value.length)"
+                                                            rows="2"></textarea>
+                                                        <button @click="$store.chat.saveEdit()" class="message-edit-save" title="保存">
+                                                            <i class="fas fa-check"></i>
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <!-- Normal display mode -->
+                                                    <div x-show="!isEditing">
+                                                        <!-- Message with quote -->
+                                                        <div x-show="parsedContent">
                                                             <div class="quoted-content">
                                                                 <div class="quote-bar"></div>
-                                                                <div class="quote-text" x-text="parsedContent.quoted"></div>
+                                                                <div class="quote-text" x-text="parsedContent?.quoted"></div>
                                                             </div>
-                                                            <div class="message-text" x-text="parsedContent.text"></div>
+                                                            <div class="message-text" x-text="parsedContent?.text"></div>
                                                         </div>
-                                                    </template>
-                                                    <!-- Regular message without quote -->
-                                                    <template x-if="!parsedContent">
-                                                        <div class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
-                                                    </template>
+                                                        <!-- Regular message without quote -->
+                                                        <div x-show="!parsedContent" class="message-text" x-text="message.senderName ? (message.senderName + ': ' + message.content) : (message.content || '消息内容为空')"></div>
+                                                    </div>
                                                 </div>
                                             </template>
                                             
@@ -314,6 +332,10 @@
                                     <button role="menuitem" @click="$store.messageTooltip.quoteMessage()">
                                         <i class="fas fa-quote-left"></i>
                                         <span>引用</span>
+                                    </button>
+                                    <button role="menuitem" @click="$store.messageTooltip.editMessage()">
+                                        <i class="fas fa-edit"></i>
+                                        <span>编辑</span>
                                     </button>
                                     <button role="menuitem" @click="$store.messageTooltip.deleteMessage()">
                                         <i class="fas fa-trash"></i>

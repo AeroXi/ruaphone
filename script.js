@@ -838,6 +838,8 @@ document.addEventListener('alpine:init', () => {
         chats: [],
         currentMessages: [],
         quotedMessage: null, // Store the message being quoted
+        editingMessageId: null,
+        editingContent: '',
         
         async loadChats() {
             this.chats = await db.chats.orderBy('created').reverse().toArray();
@@ -917,6 +919,59 @@ document.addEventListener('alpine:init', () => {
             
             // Sort by timestamp
             this.currentMessages.sort((a, b) => a.timestamp - b.timestamp);
+        },
+        
+        // Start editing a message
+        startEdit(messageId, content) {
+            // Only allow editing text messages
+            const message = this.currentMessages.find(m => m.id === messageId);
+            if (!message || message.type !== 'text') return;
+            
+            // Remove quote prefix if present
+            let editContent = content || message.content || '';
+            const quoteMatch = editContent.match(/^quote<[^>]*>(.*)/s);
+            if (quoteMatch) {
+                editContent = quoteMatch[1]; // Only get the actual message part
+            }
+            
+            this.editingMessageId = messageId;
+            this.editingContent = editContent;
+        },
+        
+        // Cancel editing
+        cancelEdit() {
+            this.editingMessageId = null;
+            this.editingContent = '';
+        },
+        
+        // Save edited message
+        async saveEdit() {
+            if (!this.editingMessageId || !this.editingContent.trim()) {
+                this.cancelEdit();
+                return;
+            }
+            
+            try {
+                // Update message in database
+                await db.messages.update(this.editingMessageId, {
+                    content: this.editingContent.trim(),
+                    edited: true,
+                    editedAt: Date.now()
+                });
+                
+                // Reload messages for current chat
+                const currentChatId = Alpine.store('app').currentChatId;
+                if (currentChatId) {
+                    await this.loadMessages(currentChatId);
+                    await this.loadChats(); // Update last message display
+                }
+                
+                // Clear edit state
+                this.cancelEdit();
+            } catch (error) {
+                console.error('Failed to save edit:', error);
+                alert('编辑失败，请重试');
+            }
         },
         
         async sendMessage(chatId, messageData, role = 'user') {
@@ -1959,6 +2014,33 @@ document.addEventListener('alpine:init', () => {
             
             // Set the quoted message in chat store
             chatStore.quotedMessage = message;
+            
+            this.hide();
+        },
+        
+        async editMessage() {
+            if (!this.messageId) return;
+            
+            console.log('✏️ Editing message:', this.messageId);
+            const chatStore = Alpine.store('chat');
+            
+            // Find the message to edit
+            const message = chatStore.currentMessages.find(m => m.id === this.messageId);
+            if (!message) {
+                console.error('Message not found:', this.messageId);
+                return;
+            }
+            
+            // Only allow editing text messages
+            if (message.type !== 'text' && message.type !== undefined) {
+                console.log('Cannot edit non-text message');
+                alert('只能编辑文字消息');
+                this.hide();
+                return;
+            }
+            
+            // Start editing in chat store
+            chatStore.startEdit(this.messageId, message.content);
             
             this.hide();
         }

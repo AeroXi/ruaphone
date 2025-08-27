@@ -2051,6 +2051,60 @@ body {
     font-size: 12px;
 }
 
+/* Message Edit Mode Styles */
+.message-edit-mode {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+}
+
+.message-edit-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: inherit;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    min-height: 40px;
+    max-height: 120px;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.message-edit-input:focus {
+    border-color: var(--primary-color);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.message-edit-save {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.message-edit-save:hover {
+    background: #45a049;
+    transform: scale(1.1);
+}
+
+.message-edit-save:active {
+    transform: scale(0.95);
+}
+
 /* Quoted Message Bar Styles (above input) */
 .quoted-message-bar {
     position: absolute;
