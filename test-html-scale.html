@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试HTML消息缩放</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-case {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0051D5;
+        }
+        .instructions {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>HTML消息缩放测试</h1>
+        
+        <div class="instructions">
+            <strong>使用说明：</strong>
+            <ol>
+                <li>打开 http://localhost:8080 访问应用</li>
+                <li>进入任意聊天</li>
+                <li>发送下面的测试用例来测试HTML缩放功能</li>
+                <li>双击HTML消息可以切换缩放/原始大小</li>
+            </ol>
+        </div>
+
+        <div class="test-case">
+            <h2>测试用例1：超大尺寸内容（应自动缩放）</h2>
+            <p>发送以下消息来生成一个600x500的内容，应该自动缩放到合适大小：</p>
+            <textarea readonly>请生成一个HTML界面，展示一个大型的产品列表：
+{"type": "html", "content": "<div style='width:600px;height:500px;padding:20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white'><h1>🛍️ 超级商城</h1><div style='display:grid;grid-template-columns:repeat(3,1fr);gap:15px'><div style='background:white;color:black;padding:15px;border-radius:8px'><img src='data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\"%3E%3Crect width=\"100\" height=\"100\" fill=\"%23ddd\"/%3E%3C/svg%3E' style='width:100%;border-radius:4px'/><h3>商品1</h3><p>¥99</p><button style='background:#667eea;color:white;border:none;padding:8px;width:100%;border-radius:4px'>购买</button></div><div style='background:white;color:black;padding:15px;border-radius:8px'><img src='data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\"%3E%3Crect width=\"100\" height=\"100\" fill=\"%23ddd\"/%3E%3C/svg%3E' style='width:100%;border-radius:4px'/><h3>商品2</h3><p>¥199</p><button style='background:#667eea;color:white;border:none;padding:8px;width:100%;border-radius:4px'>购买</button></div><div style='background:white;color:black;padding:15px;border-radius:8px'><img src='data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\"%3E%3Crect width=\"100\" height=\"100\" fill=\"%23ddd\"/%3E%3C/svg%3E' style='width:100%;border-radius:4px'/><h3>商品3</h3><p>¥299</p><button style='background:#667eea;color:white;border:none;padding:8px;width:100%;border-radius:4px'>购买</button></div></div></div>"}</textarea>
+            <button onclick="copyText(this.previousElementSibling)">复制</button>
+        </div>
+
+        <div class="test-case">
+            <h2>测试用例2：适中尺寸（不需缩放）</h2>
+            <p>发送以下消息来生成一个300x200的内容，应该正常显示：</p>
+            <textarea readonly>请生成一个简单的登录界面：
+{"type": "html", "content": "<div style='width:280px;padding:20px;background:#f8f9fa;border-radius:12px'><h2 style='text-align:center;color:#333'>👤 用户登录</h2><input type='text' placeholder='用户名' style='width:100%;padding:10px;margin:10px 0;border:1px solid #ddd;border-radius:6px;box-sizing:border-box'/><input type='password' placeholder='密码' style='width:100%;padding:10px;margin:10px 0;border:1px solid #ddd;border-radius:6px;box-sizing:border-box'/><button style='width:100%;padding:12px;background:#007AFF;color:white;border:none;border-radius:6px;font-size:16px;cursor:pointer'>登录</button><p style='text-align:center;margin-top:15px;color:#666;font-size:14px'>忘记密码？</p></div>"}</textarea>
+            <button onclick="copyText(this.previousElementSibling)">复制</button>
+        </div>
+
+        <div class="test-case">
+            <h2>测试用例3：交互式内容</h2>
+            <p>发送以下消息来生成一个带JavaScript的交互式计算器：</p>
+            <textarea readonly>请生成一个简单的计算器：
+{"type": "html", "content": "<div style='width:250px;padding:15px;background:#2c3e50;border-radius:12px'><div id='display' style='background:#ecf0f1;padding:10px;margin-bottom:10px;text-align:right;font-size:24px;border-radius:6px;min-height:40px'>0</div><div style='display:grid;grid-template-columns:repeat(4,1fr);gap:5px'><button onclick='addToDisplay(\"7\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>7</button><button onclick='addToDisplay(\"8\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>8</button><button onclick='addToDisplay(\"9\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>9</button><button onclick='addToDisplay(\"/\")' style='padding:15px;background:#e74c3c;color:white;border:none;border-radius:4px;font-size:18px'>/</button><button onclick='addToDisplay(\"4\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>4</button><button onclick='addToDisplay(\"5\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>5</button><button onclick='addToDisplay(\"6\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>6</button><button onclick='addToDisplay(\"*\")' style='padding:15px;background:#e74c3c;color:white;border:none;border-radius:4px;font-size:18px'>*</button><button onclick='addToDisplay(\"1\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>1</button><button onclick='addToDisplay(\"2\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>2</button><button onclick='addToDisplay(\"3\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>3</button><button onclick='addToDisplay(\"-\")' style='padding:15px;background:#e74c3c;color:white;border:none;border-radius:4px;font-size:18px'>-</button><button onclick='clearDisplay()' style='padding:15px;background:#95a5a6;color:white;border:none;border-radius:4px;font-size:18px'>C</button><button onclick='addToDisplay(\"0\")' style='padding:15px;background:#34495e;color:white;border:none;border-radius:4px;font-size:18px'>0</button><button onclick='calculate()' style='padding:15px;background:#27ae60;color:white;border:none;border-radius:4px;font-size:18px'>=</button><button onclick='addToDisplay(\"+\")' style='padding:15px;background:#e74c3c;color:white;border:none;border-radius:4px;font-size:18px'>+</button></div><script>let display=document.getElementById('display');let currentValue='0';function updateDisplay(){display.innerText=currentValue;}function addToDisplay(val){if(currentValue==='0'){currentValue=val;}else{currentValue+=val;}updateDisplay();}function clearDisplay(){currentValue='0';updateDisplay();}function calculate(){try{currentValue=eval(currentValue).toString();}catch{currentValue='Error';}updateDisplay();}</script></div>"}</textarea>
+            <button onclick="copyText(this.previousElementSibling)">复制</button>
+        </div>
+    </div>
+
+    <script>
+        function copyText(textarea) {
+            textarea.select();
+            document.execCommand('copy');
+            const button = textarea.nextElementSibling;
+            const originalText = button.innerText;
+            button.innerText = '已复制！';
+            button.style.background = '#27ae60';
+            setTimeout(() => {
+                button.innerText = originalText;
+                button.style.background = '#007AFF';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

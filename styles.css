@@ -2215,12 +2215,18 @@ body {
 
 /* HTML Message Styles */
 .html-message {
-    width: 100%;
-    max-width: 320px;
+    position: relative;
     overflow: hidden;
     border-radius: 12px;
     background: white;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    max-width: 320px;
+}
+
+.html-message:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .message-html.user .html-message {
@@ -2234,8 +2240,29 @@ body {
 
 .html-message iframe {
     display: block;
-    width: 100%;
     border: none;
-    background: transparent;
+    background: white;
     border-radius: 12px;
+    pointer-events: auto;
+    transition: transform 0.3s ease;
+}
+
+/* Scale indicator */
+.scale-indicator {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.scale-indicator i {
+    font-size: 10px;
 }

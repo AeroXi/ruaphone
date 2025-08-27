@@ -308,23 +308,77 @@
                                             <template x-if="message.type === 'html'">
                                                 <div class="html-message" x-data="{
                                                     iframeId: 'html-msg-' + message.id,
+                                                    scale: 1,
+                                                    originalSize: false,
                                                     autoResize() {
                                                         const iframe = document.getElementById(this.iframeId);
-                                                        if (iframe && iframe.contentWindow) {
+                                                        const container = iframe?.parentElement;
+                                                        if (iframe && iframe.contentWindow && container) {
                                                             try {
                                                                 const body = iframe.contentWindow.document.body;
                                                                 const html = iframe.contentWindow.document.documentElement;
-                                                                const height = Math.max(
+                                                                
+                                                                // 获取内容实际尺寸
+                                                                const contentHeight = Math.max(
                                                                     body.scrollHeight, body.offsetHeight,
                                                                     html.scrollHeight, html.offsetHeight
                                                                 );
-                                                                iframe.style.height = height + 'px';
+                                                                const contentWidth = Math.max(
+                                                                    body.scrollWidth, body.offsetWidth,
+                                                                    html.scrollWidth, html.offsetWidth
+                                                                );
+                                                                
+                                                                // 设置iframe原始尺寸
+                                                                iframe.style.width = contentWidth + 'px';
+                                                                iframe.style.height = contentHeight + 'px';
+                                                                
+                                                                // 获取容器最大尺寸
+                                                                const maxWidth = 320;
+                                                                const maxHeight = 450;
+                                                                
+                                                                // 计算缩放比例
+                                                                if (contentWidth > maxWidth || contentHeight > maxHeight) {
+                                                                    const scaleX = maxWidth / contentWidth;
+                                                                    const scaleY = maxHeight / contentHeight;
+                                                                    this.scale = Math.min(scaleX, scaleY);
+                                                                    
+                                                                    // 应用缩放
+                                                                    iframe.style.transform = `scale(${this.scale})`;
+                                                                    iframe.style.transformOrigin = 'top left';
+                                                                    
+                                                                    // 调整容器高度以适应缩放后的内容
+                                                                    container.style.height = (contentHeight * this.scale) + 'px';
+                                                                    container.style.width = (contentWidth * this.scale) + 'px';
+                                                                } else {
+                                                                    this.scale = 1;
+                                                                    iframe.style.transform = 'none';
+                                                                    container.style.height = contentHeight + 'px';
+                                                                    container.style.width = contentWidth + 'px';
+                                                                }
                                                             } catch(e) {
                                                                 console.log('Cannot resize iframe:', e);
                                                             }
                                                         }
+                                                    },
+                                                    toggleSize() {
+                                                        const iframe = document.getElementById(this.iframeId);
+                                                        const container = iframe?.parentElement;
+                                                        if (!iframe || !container) return;
+                                                        
+                                                        this.originalSize = !this.originalSize;
+                                                        if (this.originalSize) {
+                                                            // 显示原始尺寸
+                                                            iframe.style.transform = 'none';
+                                                            container.style.overflow = 'auto';
+                                                            container.style.maxWidth = '100%';
+                                                            container.style.maxHeight = '80vh';
+                                                        } else {
+                                                            // 恢复缩放
+                                                            this.autoResize();
+                                                            container.style.overflow = 'hidden';
+                                                        }
                                                     }
-                                                }">
+                                                }" @dblclick="toggleSize()">
                                                     <iframe 
                                                         :id="iframeId"
                                                         :srcdoc="message.content"
@@ -332,8 +386,12 @@
                                                         scrolling="no"
                                                         frameborder="0"
                                                         @load="autoResize()"
-                                                        style="width: 100%; min-height: 100px; max-height: 500px; border-radius: 12px; background: transparent;">
+                                                        style="min-height: 100px; border-radius: 12px; background: white;">
                                                     </iframe>
+                                                    <div x-show="scale < 1 && !originalSize" class="scale-indicator">
+                                                        <i class="fas fa-search-minus"></i> 
+                                                        <span x-text="Math.round(scale * 100) + '%'"></span>
+                                                    </div>
                                                 </div>
                                             </template>
                                             
