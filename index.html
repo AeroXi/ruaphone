@@ -173,7 +173,8 @@
                                              'message-voice': message.type === 'voice',
                                              'message-image': message.type === 'image',
                                              'message-transfer': message.type === 'transfer',
-                                             'message-sticker': message.type === 'sticker'
+                                             'message-sticker': message.type === 'sticker',
+                                             'message-html': message.type === 'html'
                                          }">
                                         
                                         <!-- Avatar -->
@@ -197,7 +198,7 @@
 
                                         <!-- Message Content -->
                                         <div class="message-content content" 
-                                             :class="{ 'no-bubble': message.type === 'voice' || message.type === 'image' || message.type === 'transfer' || message.type === 'sticker' }"
+                                             :class="{ 'no-bubble': message.type === 'voice' || message.type === 'image' || message.type === 'transfer' || message.type === 'sticker' || message.type === 'html' }"
                                              @pointerdown="$store.messageTooltip.startLongPress($event, $el, message.id)"
                                              @pointerup="$store.messageTooltip.endLongPress()"
                                              @pointercancel="$store.messageTooltip.cancelLongPress()"
@@ -300,6 +301,39 @@
                                                     <img :src="message.stickerUrl" 
                                                          :alt="message.content || '表情'"
                                                          @error="$event.target.style.display='none'">
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- HTML Message -->
+                                            <template x-if="message.type === 'html'">
+                                                <div class="html-message" x-data="{
+                                                    iframeId: 'html-msg-' + message.id,
+                                                    autoResize() {
+                                                        const iframe = document.getElementById(this.iframeId);
+                                                        if (iframe && iframe.contentWindow) {
+                                                            try {
+                                                                const body = iframe.contentWindow.document.body;
+                                                                const html = iframe.contentWindow.document.documentElement;
+                                                                const height = Math.max(
+                                                                    body.scrollHeight, body.offsetHeight,
+                                                                    html.scrollHeight, html.offsetHeight
+                                                                );
+                                                                iframe.style.height = height + 'px';
+                                                            } catch(e) {
+                                                                console.log('Cannot resize iframe:', e);
+                                                            }
+                                                        }
+                                                    }
+                                                }">
+                                                    <iframe 
+                                                        :id="iframeId"
+                                                        :srcdoc="message.content"
+                                                        sandbox="allow-scripts allow-forms allow-modals allow-same-origin"
+                                                        scrolling="no"
+                                                        frameborder="0"
+                                                        @load="autoResize()"
+                                                        style="width: 100%; min-height: 100px; max-height: 500px; border-radius: 12px; background: transparent;">
+                                                    </iframe>
                                                 </div>
                                             </template>
                                             

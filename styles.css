@@ -2212,3 +2212,30 @@ body {
     margin-top: 5px;
     display: block;
 }
+
+/* HTML Message Styles */
+.html-message {
+    width: 100%;
+    max-width: 320px;
+    overflow: hidden;
+    border-radius: 12px;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.message-html.user .html-message {
+    background: rgba(220, 230, 225, 0.3);
+}
+
+.message-html.ai .html-message,
+.message-html.assistant .html-message {
+    background: rgba(255, 255, 255, 0.9);
+}
+
+.html-message iframe {
+    display: block;
+    width: 100%;
+    border: none;
+    background: transparent;
+    border-radius: 12px;
+}

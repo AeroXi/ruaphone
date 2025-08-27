@@ -545,6 +545,16 @@ const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色
 当你想要撤回刚发的消息时，使用以下格式：
 {"type": "recall", "content": "刚才发送的内容"}
 
+## HTML互动内容
+当你想要创建交互式界面或可视化内容时（比如外卖APP、小游戏、表单、图表等），使用以下格式：
+{"type": "html", "content": "完整的HTML代码"}
+
+HTML消息使用指南：
+- content必须包含完整的HTML内容，支持内嵌CSS和JavaScript
+- 适用场景：创建外卖点餐界面、游戏、问卷调查、数据可视化、动画效果等
+- 示例：外卖APP界面
+{"type": "html", "content": "<div style='padding:20px'><h2>🍔 美食外卖</h2><div style='border:1px solid #ddd;border-radius:8px;padding:15px;margin:10px 0'><h3>汉堡套餐</h3><p>￥35</p><button style='background:#ff6b35;color:white;border:none;padding:8px 16px;border-radius:4px'>立即下单</button></div></div>"}
+
 # JSON输出格式示例:
 - 普通消息：["很高兴认识你呀，在干嘛呢？", "对了，今天天气不错，要不要出去走走？"]
 - 混合消息：["文本消息", {"type": "voice", "content": "我刚才想到一件事，等下和你说"}, {"type": "transfer", "amount": 100, "note": "请你喝奶茶"}]
@@ -562,6 +572,7 @@ const DEFAULT_PROMPT_GROUP = `你是一个群聊的组织者和AI驱动器。你
    - 语音消息: {"name": "角色名", "type": "voice", "content": "语音内容"}
    - 转账消息: {"name": "角色名", "type": "transfer", "amount": 金额, "note": "备注"}
    - 撤回消息: {"name": "角色名", "type": "recall", "content": "撤回的内容"}
+   - HTML内容: {"name": "角色名", "type": "html", "content": "完整HTML代码"}
 5. **对话节奏**: 模拟真实群聊，让成员之间互相交谈，或者一起回应用户的发言。
 6. **数量限制**: 每次生成的总消息数**不得超过10条**。
 7. **禁止出戏**: 绝不能透露你是AI。
@@ -571,6 +582,7 @@ const DEFAULT_PROMPT_GROUP = `你是一个群聊的组织者和AI驱动器。你
 - **语音消息**: 当角色想要表达强烈情感、急迫事情或私密内容时
 - **转账**: 当角色想要表达感谢、道歉、庆祝或其他特殊情感时
 - **撤回**: 当角色想要撤回刚说的话（比如说错话、太激动等）
+- **HTML内容**: 当角色想要展示交互式内容（如点餐界面、小游戏、投票等）
 
 # 群成员列表及人设
 {membersList}
@@ -877,6 +889,9 @@ document.addEventListener('alpine:init', () => {
                     break;
                 case 'sticker':
                     displayText = '[表情]';
+                    break;
+                case 'html':
+                    displayText = '[互动内容]';
                     break;
                 default:
                     displayText = message.content?.substring(0, 20) || '消息';
@@ -1487,6 +1502,33 @@ document.addEventListener('alpine:init', () => {
                     break;
                 case 'sticker':
                     aiMessage.stickerUrl = msgData.url || msgData.stickerUrl;
+                    break;
+                case 'html':
+                    // HTML content is stored directly in the content field
+                    // Ensure it's a complete HTML document with proper structure
+                    if (!msgData.content.includes('<html') && !msgData.content.includes('<!DOCTYPE')) {
+                        // Wrap partial HTML in a basic document structure
+                        aiMessage.content = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    ${msgData.content}
+</body>
+</html>`;
+                    }
                     break;
             }
         },
