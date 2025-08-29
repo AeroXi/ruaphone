@@ -2781,7 +2781,7 @@ function chatInterface() {
                             <source src="${audioData.startsWith('http') ? audioData : 'data:audio/mp3;base64,' + audioData}" type="audio/mp3">
                             您的浏览器不支持音频播放
                         </audio>
-                        <button style="
+                        <button id="voice-modal-close-btn" style="
                             background: #007AFF;
                             color: white;
                             border: none;
@@ -2789,12 +2789,20 @@ function chatInterface() {
                             border-radius: 6px;
                             cursor: pointer;
                             font-size: 14px;
-                        " onclick="this.closest('[style*=\"position: fixed\"]').remove()">关闭</button>
+                        ">关闭</button>
                     </div>
                 `;
                 
                 modal.appendChild(playerContainer);
                 document.body.appendChild(modal);
+                
+                // Attach event listener to close button
+                const closeBtn = document.getElementById('voice-modal-close-btn');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', () => {
+                        modal.remove();
+                    });
+                }
                 
                 // Close modal on backdrop click
                 modal.addEventListener('click', (e) => {
