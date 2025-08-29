@@ -38,6 +38,21 @@ db.version(8).stores({
     });
 });
 
+// Version 9: Add Minimax voice API configuration
+db.version(9).stores({
+    chats: '&id, name, type, personaId, created',
+    messages: '&id, chatId, timestamp, role, type, voiceAudio', // Add voiceAudio for cached audio
+    apiConfig: '&id',
+    voiceApiConfig: '&id', // New table for voice API settings
+    worldBooks: '&id, name, enabled, created',
+    personas: '&id, name, avatar, persona, created',
+    globalSettings: '&id',
+    moments: '&id, userId, userName, timestamp, content',
+    momentsComments: '&id, momentId, userId, userName, timestamp',
+    momentsLikes: '&id, momentId, userId, userName, timestamp',
+    userProfile: '&id, avatar, name, gender, age, bio, updated'
+});
+
 // Database upgrade and error handling
 db.open().catch(function(error) {
     console.error('Database failed to open:', error);
@@ -503,6 +518,112 @@ if (typeof window !== 'undefined' && (location.hostname === 'localhost' || locat
     
     console.log('Development mode: testApiURL() function available');
 }
+
+// Minimax TTS Service
+class MinimaxTTS {
+    constructor() {
+        this.cache = new Map(); // Cache audio data
+    }
+    
+    // Helper function to convert hex string to base64
+    hexToBase64(hexString) {
+        // Remove any whitespace
+        const hex = hexString.replace(/\s/g, '');
+        // Convert hex to bytes
+        const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+        // Convert bytes to base64
+        let binary = '';
+        bytes.forEach(byte => binary += String.fromCharCode(byte));
+        return btoa(binary);
+    }
+    
+    async synthesizeVoice(text, config) {
+        if (!config.minimaxApiKey || !config.minimaxGroupId) {
+            throw new Error('Minimax API配置不完整');
+        }
+        
+        // Check cache first
+        const cacheKey = `${text}_${config.minimaxModel}_${config.voiceId}`;
+        if (this.cache.has(cacheKey)) {
+            console.log('Using cached voice for:', text.substring(0, 20) + '...');
+            return this.cache.get(cacheKey);
+        }
+        
+        try {
+            // Build the correct URL with GroupId as query parameter
+            const apiUrl = `https://api.minimaxi.com/v1/t2a_v2?GroupId=${config.minimaxGroupId}`;
+            
+            const requestBody = {
+                model: config.minimaxModel || 'speech-2.5-hd-preview',
+                text: text,
+                stream: false,
+                voice_setting: {
+                    voice_id: config.voiceId || 'male-qn-qingse',
+                    speed: 1,
+                    vol: 1,
+                    pitch: 0
+                },
+                audio_setting: {
+                    format: 'mp3',
+                    sample_rate: 32000,
+                    bitrate: 128000
+                },
+                output_format: 'hex'
+            };
+            
+            console.log('Minimax TTS Request:', apiUrl, requestBody);
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${config.minimaxApiKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                const errorMsg = error?.base_resp?.status_msg || error?.message || `HTTP ${response.status}`;
+                throw new Error(`Minimax API错误: ${errorMsg}`);
+            }
+            
+            const data = await response.json();
+            console.log('Minimax TTS Response:', data);
+            
+            // Check for API-level errors
+            if (data.base_resp && data.base_resp.status_code !== 0) {
+                throw new Error(`Minimax API错误: ${data.base_resp.status_msg || 'Unknown error'}`);
+            }
+            
+            // Extract and convert hex audio to base64
+            if (data.data && data.data.audio) {
+                const base64Audio = this.hexToBase64(data.data.audio);
+                this.cache.set(cacheKey, base64Audio);
+                
+                // Limit cache size
+                if (this.cache.size > 50) {
+                    const firstKey = this.cache.keys().next().value;
+                    this.cache.delete(firstKey);
+                }
+                
+                return base64Audio;
+            }
+            
+            throw new Error('无效的语音合成响应：未找到音频数据');
+        } catch (error) {
+            console.error('Voice synthesis failed:', error);
+            throw error;
+        }
+    }
+    
+    clearCache() {
+        this.cache.clear();
+    }
+}
+
+// Initialize global TTS service
+window.minimaxTTS = new MinimaxTTS();
 
 // Default prompt templates
 const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色。
@@ -1456,6 +1577,21 @@ document.addEventListener('alpine:init', () => {
                         continue;
                     }
                     
+                    // For voice messages, auto-synthesize voice if enabled
+                    if (aiMessage.type === 'voice' && aiMessage.content) {
+                        const voiceConfig = Alpine.store('settings').voiceApiConfig;
+                        if (voiceConfig.voiceEnabled && voiceConfig.minimaxApiKey && voiceConfig.minimaxGroupId) {
+                            try {
+                                // Pre-synthesize voice for AI messages
+                                const audioData = await window.minimaxTTS.synthesizeVoice(aiMessage.content, voiceConfig);
+                                aiMessage.voiceAudio = audioData;
+                            } catch (error) {
+                                console.error('Failed to pre-synthesize voice:', error);
+                                // Continue without voice synthesis
+                            }
+                        }
+                    }
+                    
                     await db.messages.add(aiMessage);
                 }
                 
@@ -1568,6 +1704,43 @@ document.addEventListener('alpine:init', () => {
             apiType: 'openai'
         },
         
+        // Voice API Configuration
+        voiceApiConfig: {
+            voiceEnabled: false,
+            minimaxApiKey: '',
+            minimaxGroupId: '',
+            minimaxModel: 'speech-2.5-hd-preview',
+            voiceId: 'male-qn-qingse'
+        },
+        
+        // Available voice models
+        voiceModels: [
+            { id: 'speech-2.5-hd-preview', name: 'Speech 2.5 HD Preview (默认)' },
+            { id: 'speech-2.5-turbo-preview', name: 'Speech 2.5 Turbo Preview' },
+            { id: 'speech-02-hd', name: 'Speech 02 HD' },
+            { id: 'speech-02-turbo', name: 'Speech 02 Turbo' },
+            { id: 'speech-01-hd', name: 'Speech 01 HD' },
+            { id: 'speech-01-turbo', name: 'Speech 01 Turbo' }
+        ],
+        
+        // Available voice characters
+        voiceCharacters: [
+            { id: 'male-qn-qingse', name: '青涩青年男声' },
+            { id: 'male-qn-jingying', name: '精英青年男声' },
+            { id: 'male-qn-badao', name: '霸道青年男声' },
+            { id: 'male-qn-daxuesheng', name: '青年大学生男声' },
+            { id: 'female-shaonv', name: '少女音' },
+            { id: 'female-yujie', name: '御姐音' },
+            { id: 'female-chengshu', name: '成熟女声' },
+            { id: 'female-tianmei', name: '甜美女声' },
+            { id: 'presenter_male', name: '男性主持人' },
+            { id: 'presenter_female', name: '女性主持人' },
+            { id: 'audiobook_male_1', name: '有声书男声1' },
+            { id: 'audiobook_female_1', name: '有声书女声1' },
+            { id: 'friendly_male', name: '友好男声' },
+            { id: 'childvoice', name: '童声' }
+        ],
+        
         // Model list management
         availableModels: [],
         modelsLoading: false,
@@ -1588,12 +1761,25 @@ document.addEventListener('alpine:init', () => {
             if (config) {
                 this.apiConfig = { ...config };
             }
+            
+            // Load voice API config
+            const voiceConfig = await db.voiceApiConfig.get('main');
+            if (voiceConfig) {
+                this.voiceApiConfig = { ...this.voiceApiConfig, ...voiceConfig };
+            }
         },
         
         async saveConfig() {
             await db.apiConfig.put({ 
                 id: 'main', 
                 ...this.apiConfig 
+            });
+        },
+        
+        async saveVoiceConfig() {
+            await db.voiceApiConfig.put({
+                id: 'main',
+                ...this.voiceApiConfig
             });
         },
         
@@ -2368,6 +2554,26 @@ function phoneApp() {
                 alert('保存失败');
             }
         },
+        // Save Voice API configuration
+        async saveVoiceApiConfig() {
+            try {
+                const voiceConfig = Alpine.store('settings').voiceApiConfig;
+                
+                // Validate required fields
+                if (voiceConfig.voiceEnabled) {
+                    if (!voiceConfig.minimaxApiKey || !voiceConfig.minimaxGroupId) {
+                        alert('请填写所有必填字段（API Key 和 Group ID）');
+                        return;
+                    }
+                }
+                
+                await Alpine.store('settings').saveVoiceConfig();
+                alert('语音API设置已保存');
+            } catch (error) {
+                console.error('Failed to save voice API config:', error);
+                alert('保存失败: ' + error.message);
+            }
+        },
 
         // Get computed properties for current page
         get currentPage() {
@@ -2494,9 +2700,113 @@ function chatInterface() {
         
         
         // Special message interactions
-        playVoiceMessage(message) {
-            if (message.content) {
+        async playVoiceMessage(message) {
+            if (!message.content) return;
+            
+            const voiceConfig = Alpine.store('settings').voiceApiConfig;
+            
+            // Check if voice is enabled and properly configured
+            if (!voiceConfig.voiceEnabled || !voiceConfig.minimaxApiKey || !voiceConfig.minimaxGroupId) {
+                // Fallback to text display
                 alert(`语音消息内容：\n${message.content}`);
+                return;
+            }
+            
+            try {
+                // Show loading indicator
+                const loadingToast = document.createElement('div');
+                loadingToast.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0, 0, 0, 0.8);
+                    color: white;
+                    padding: 12px 24px;
+                    border-radius: 8px;
+                    z-index: 10000;
+                    font-size: 14px;
+                `;
+                loadingToast.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 正在合成语音...';
+                document.body.appendChild(loadingToast);
+                
+                // Check if we have cached audio
+                let audioData = message.voiceAudio;
+                
+                if (!audioData) {
+                    // Synthesize voice using Minimax API
+                    audioData = await window.minimaxTTS.synthesizeVoice(message.content, voiceConfig);
+                    
+                    // Save audio to message for caching
+                    await db.messages.where('id').equals(message.id).modify({
+                        voiceAudio: audioData
+                    });
+                }
+                
+                // Remove loading indicator
+                loadingToast.remove();
+                
+                // Create audio player modal
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 9999;
+                `;
+                
+                const playerContainer = document.createElement('div');
+                playerContainer.style.cssText = `
+                    background: white;
+                    border-radius: 12px;
+                    padding: 24px;
+                    max-width: 400px;
+                    width: 90%;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                `;
+                
+                playerContainer.innerHTML = `
+                    <div style="text-align: center;">
+                        <h3 style="margin: 0 0 16px 0; color: #333;">语音消息</h3>
+                        <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                            <p style="margin: 0; color: #666; font-size: 14px;">${message.content}</p>
+                        </div>
+                        <audio controls autoplay style="width: 100%; margin-bottom: 16px;">
+                            <source src="${audioData.startsWith('http') ? audioData : 'data:audio/mp3;base64,' + audioData}" type="audio/mp3">
+                            您的浏览器不支持音频播放
+                        </audio>
+                        <button style="
+                            background: #007AFF;
+                            color: white;
+                            border: none;
+                            padding: 8px 24px;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 14px;
+                        " onclick="this.closest('[style*=\"position: fixed\"]').remove()">关闭</button>
+                    </div>
+                `;
+                
+                modal.appendChild(playerContainer);
+                document.body.appendChild(modal);
+                
+                // Close modal on backdrop click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.remove();
+                    }
+                });
+                
+            } catch (error) {
+                console.error('Failed to play voice message:', error);
+                // Fallback to text display
+                alert(`语音播放失败，显示文字内容：\n${message.content}\n\n错误: ${error.message}`);
             }
         },
         
