@@ -1544,10 +1544,16 @@ document.addEventListener('alpine:init', () => {
                             }
                         } else if (msg.type) {
                             // Special message type
+                            // For transfer messages, generate a default content if empty
+                            let content = msg.content || '';
+                            if (msg.type === 'transfer' && !content) {
+                                content = `[转账] ¥${parseFloat(msg.amount || 0).toFixed(2)}`;
+                            }
+                            
                             aiMessage = {
                                 ...baseMessage,
                                 type: msg.type,
-                                content: msg.content || ''
+                                content: content
                             };
                             
                             // Add type-specific properties
@@ -1572,8 +1578,13 @@ document.addEventListener('alpine:init', () => {
                         };
                     }
                     
-                    // Skip empty messages
-                    if (!aiMessage || !aiMessage.content || aiMessage.content.trim().length === 0) {
+                    // Skip empty messages (but allow transfer messages with empty content)
+                    if (!aiMessage) {
+                        continue;
+                    }
+                    
+                    // For transfer messages, content can be empty
+                    if (aiMessage.type !== 'transfer' && (!aiMessage.content || aiMessage.content.trim().length === 0)) {
                         continue;
                     }
                     
