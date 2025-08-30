@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ruaphone-v1.12.0';
+const CACHE_NAME = 'ruaphone-v1.12.1';
 const urlsToCache = [
   '/',
   '/index.html',

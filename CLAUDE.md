@@ -178,3 +178,4 @@ Command content here with $ARGUMENTS placeholder
 
 ### Personal Commands
 For commands across all projects, use `~/.claude/commands/` directory.
+- 在这个ai聊天应用中,我方用户称为user,对方ai角色称为char
