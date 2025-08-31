@@ -1436,9 +1436,80 @@
             </div>
         </div>
 
+        <!-- Group Chat Create Modal -->
+        <div class="modal" :class="{ active: showCreateGroupChatModal }"
+             x-data="{
+                 showCreateGroupChatModal: false,
+                 groupName: '',
+                 selectedPersonaIds: [],
+                 togglePersona(id) {
+                     if (this.selectedPersonaIds.includes(id)) {
+                         this.selectedPersonaIds = this.selectedPersonaIds.filter(pid => pid !== id);
+                     } else {
+                         this.selectedPersonaIds.push(id);
+                     }
+                 },
+                 createGroup() {
+                     if (!this.groupName.trim()) {
+                         alert('请输入群聊名称');
+                         return;
+                     }
+                     if (this.selectedPersonaIds.length < 2) {
+                         alert('请选择至少两个角色');
+                         return;
+                     }
+                     const members = $store.personas.personas.filter(p => this.selectedPersonaIds.includes(p.id));
+                     $store.chat.createChat(this.groupName.trim(), 'group', '', '', '', members).then(chatId => {
+                         $store.chat.currentMessages = [];
+                         $store.app.navigateTo('chat', { chatId });
+                         this.showCreateGroupChatModal = false;
+                     });
+                 }
+             }"
+             @open-create-group-chat.window="
+                 groupName = '';
+                 selectedPersonaIds = [];
+                 showCreateGroupChatModal = true;
+             ">
+            <div class="modal-overlay" @click="showCreateGroupChatModal = false"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>创建群聊</h3>
+                    <button class="close-button" @click="showCreateGroupChatModal = false">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>群聊名称</label>
+                        <input type="text" x-model="groupName" placeholder="请输入群聊名称" />
+                    </div>
+                    <div class="form-group">
+                        <label>选择成员（至少两个）</label>
+                        <div class="persona-selector">
+                            <template x-for="persona in $store.personas.personas" :key="persona.id">
+                                <div class="persona-option"
+                                     :class="{ selected: selectedPersonaIds.includes(persona.id) }"
+                                     @click="togglePersona(persona.id)">
+                                    <div class="persona-avatar">
+                                        <img :src="persona.avatar" :alt="persona.name" />
+                                    </div>
+                                    <div class="persona-name" x-text="persona.name"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="button secondary" @click="showCreateGroupChatModal = false">取消</button>
+                    <button class="button primary" @click="createGroup()">创建</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Persona Edit Modal -->
-        <div class="modal" :class="{ active: showPersonaModal }" 
-             x-data="{ 
+        <div class="modal" :class="{ active: showPersonaModal }"
+             x-data="{
                  showPersonaModal: false, 
                  editingPersonaId: null,
                  personaName: '',

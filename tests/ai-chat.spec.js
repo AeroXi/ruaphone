@@ -41,24 +41,23 @@ test.describe('RuaPhone AI Chat', () => {
     });
 
     test('should create a new chat', async ({ page }) => {
+        // 先创建一个联系人
+        await page.click('.app-icon:has-text("通讯录")');
+        await page.click('.header-button:has(.fa-plus)');
+        await page.fill('input[placeholder="请输入人设名称"]', '小助手');
+        await page.fill('textarea[placeholder="请输入详细的人设描述..."]', '友好的AI助手，喜欢聊天');
+        await page.click('.modal.active button:has-text("创建")');
+        await page.waitForTimeout(200);
+        await page.click('.header-button:has(i.fa-arrow-left)');
+
         // 进入聊天列表
         await page.click('.app-icon:has-text("聊天")');
-        
-        // 点击创建新聊天（单聊按钮）
+
+        // 打开创建聊天弹窗并选择人设
         await page.click('.header-button:has(i.fa-user)');
-        
-        // 等待prompt弹窗并输入聊天对象名称
-        page.on('dialog', async dialog => {
-            if (dialog.message().includes('聊天对象名称')) {
-                await dialog.accept('小助手');
-            } else if (dialog.message().includes('角色设定')) {
-                await dialog.accept('友好的AI助手，喜欢聊天');
-            }
-        });
-        
-        // 等待一下让dialog处理完成
-        await page.waitForTimeout(500);
-        
+        await page.click('.persona-option:has-text("小助手")');
+        await page.click('.modal.active button:has-text("创建")');
+
         // 应该进入聊天界面
         await expect(page.locator('.chat-page')).toBeVisible();
         await expect(page.locator('.header-title:has-text("小助手")')).toBeVisible();
@@ -182,34 +181,33 @@ test.describe('RuaPhone AI Chat', () => {
     });
 
     test('should create group chat', async ({ page }) => {
-        // 进入聊天列表
+        // 先创建两个联系人
+        await page.click('.app-icon:has-text("通讯录")');
+
+        // 创建第一个人设
+        await page.click('.header-button:has(.fa-plus)');
+        await page.fill('input[placeholder="请输入人设名称"]', '小明');
+        await page.fill('textarea[placeholder="请输入详细的人设描述..."]', '活泼的朋友');
+        await page.click('.modal.active button:has-text("创建")');
+        await page.waitForTimeout(200);
+
+        // 创建第二个人设
+        await page.click('.header-button:has(.fa-plus)');
+        await page.fill('input[placeholder="请输入人设名称"]', '小红');
+        await page.fill('textarea[placeholder="请输入详细的人设描述..."]', '安静的朋友');
+        await page.click('.modal.active button:has-text("创建")');
+        await page.waitForTimeout(200);
+
+        // 返回首页并进入聊天列表
+        await page.click('.header-button:has(i.fa-arrow-left)');
         await page.click('.app-icon:has-text("聊天")');
-        
-        // 点击创建群聊按钮
+
+        // 打开创建群聊弹窗
         await page.click('.header-button:has(i.fa-users)');
-        
-        // 处理群聊创建弹窗
-        let dialogCount = 0;
-        page.on('dialog', async dialog => {
-            dialogCount++;
-            if (dialog.message().includes('群聊名称')) {
-                await dialog.accept('测试群');
-            } else if (dialog.message().includes('群成员数量')) {
-                await dialog.accept('2');
-            } else if (dialog.message().includes('第1个成员的名称')) {
-                await dialog.accept('小明');
-            } else if (dialog.message().includes('小明的角色设定')) {
-                await dialog.accept('活泼的朋友');
-            } else if (dialog.message().includes('第2个成员的名称')) {
-                await dialog.accept('小红');
-            } else if (dialog.message().includes('小红的角色设定')) {
-                await dialog.accept('安静的朋友');
-            } else if (dialog.message().includes('你在群里的昵称')) {
-                await dialog.accept('群主');
-            }
-        });
-        
-        await page.waitForTimeout(1000);
+        await page.fill('input[placeholder="请输入群聊名称"]', '测试群');
+        await page.click('.persona-option:has-text("小明")');
+        await page.click('.persona-option:has-text("小红")');
+        await page.click('.modal.active button:has-text("创建")');
 
         // 应该进入群聊界面
         await expect(page.locator('.header-title:has-text("测试群")')).toBeVisible();
