@@ -108,7 +108,7 @@
                             <button class="header-button" @click="$dispatch('open-create-chat')" title="私聊">
                                 <i class="fas fa-user"></i>
                             </button>
-                            <button class="header-button" @click="createNewGroupChat()" title="群聊">
+                            <button class="header-button" @click="$dispatch('open-create-group')" title="群聊">
                                 <i class="fas fa-users"></i>
                             </button>
                         </div>
@@ -124,7 +124,12 @@
                                              class="list-item-avatar">
                                     </div>
                                     <div class="list-item-content">
-                                        <div class="list-item-title" x-text="chat.name"></div>
+                                        <div class="list-item-title">
+                                            <span x-text="chat.name"></span>
+                                            <span x-show="chat.type === 'group'" class="group-indicator" title="群聊">
+                                                <i class="fas fa-users"></i>
+                                            </span>
+                                        </div>
                                         <div class="list-item-subtitle" x-text="chat.lastMessage || '暂无消息'"></div>
                                     </div>
                                 </div>
@@ -134,7 +139,7 @@
                             <p class="text-secondary">暂无聊天记录</p>
                             <div class="button-group mt-4">
                                 <button class="button" @click="$dispatch('open-create-chat')">创建私聊</button>
-                                <button class="button" @click="createNewGroupChat()">创建群聊</button>
+                                <button class="button" @click="$dispatch('open-create-group')">创建群聊</button>
                             </div>
                         </div>
                     </div>
@@ -1432,6 +1437,92 @@
                             showCreateChatModal = false;
                         });
                     ">创建</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Group Chat Modal -->
+        <div class="modal" :class="{ active: showCreateGroupModal }" 
+             x-data="{
+                 showCreateGroupModal: false,
+                 groupName: '',
+                 selectedPersonaIds: [],
+                 init() {
+                     console.log('Create Group Modal initialized:', this.showCreateGroupModal);
+                 },
+                 togglePersona(personaId) {
+                     const index = this.selectedPersonaIds.indexOf(personaId);
+                     if (index > -1) {
+                         this.selectedPersonaIds.splice(index, 1);
+                     } else {
+                         this.selectedPersonaIds.push(personaId);
+                     }
+                 },
+                 isPersonaSelected(personaId) {
+                     return this.selectedPersonaIds.includes(personaId);
+                 }
+             }"
+             @open-create-group.window="
+                 groupName = ''; 
+                 selectedPersonaIds = []; 
+                 showCreateGroupModal = true;
+                 console.log('Opening create group modal');
+             ">
+            <div class="modal-overlay" @click="showCreateGroupModal = false"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>创建群聊</h3>
+                    <button class="close-button" @click="showCreateGroupModal = false">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>群聊名称</label>
+                        <input type="text" x-model="groupName" placeholder="请输入群聊名称" />
+                    </div>
+                    <div class="form-group">
+                        <label>选择人设 (至少选择2个)</label>
+                        <div class="persona-selector multi-select">
+                            <template x-for="persona in $store.personas.personas" :key="persona.id">
+                                <div class="persona-option" 
+                                     :class="{ selected: isPersonaSelected(persona.id) }"
+                                     @click="togglePersona(persona.id)">
+                                    <div class="persona-avatar">
+                                        <img :src="persona.avatar" :alt="persona.name" />
+                                        <div class="selection-indicator" x-show="isPersonaSelected(persona.id)">
+                                            <i class="fas fa-check"></i>
+                                        </div>
+                                    </div>
+                                    <div class="persona-name" x-text="persona.name"></div>
+                                </div>
+                            </template>
+                        </div>
+                        <small class="form-hint" x-show="selectedPersonaIds.length < 2" style="color: #f56565;">
+                            请至少选择2个人设参与群聊
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="button secondary" @click="showCreateGroupModal = false">取消</button>
+                    <button class="button primary" 
+                            :disabled="!groupName.trim() || selectedPersonaIds.length < 2"
+                            @click="
+                                if (!groupName.trim()) { 
+                                    alert('请输入群聊名称'); 
+                                    return; 
+                                }
+                                if (selectedPersonaIds.length < 2) {
+                                    alert('请至少选择2个人设');
+                                    return;
+                                }
+                                const selectedPersonas = $store.personas.personas.filter(p => selectedPersonaIds.includes(p.id));
+                                $store.chat.createChat(groupName.trim(), 'group', '', '', 'https://via.placeholder.com/40', selectedPersonas).then(chatId => {
+                                    $store.chat.currentMessages = [];
+                                    $store.app.navigateTo('chat', { chatId });
+                                    showCreateGroupModal = false;
+                                });
+                            ">创建群聊</button>
                 </div>
             </div>
         </div>

@@ -53,6 +53,30 @@ db.version(9).stores({
     userProfile: '&id, avatar, name, gender, age, bio, updated'
 });
 
+// Version 10: Add group chat members support
+db.version(10).stores({
+    chats: '&id, name, type, personaId, created, members', // Add members field
+    messages: '&id, chatId, timestamp, role, type, voiceAudio',
+    apiConfig: '&id',
+    voiceApiConfig: '&id',
+    worldBooks: '&id, name, enabled, created',
+    personas: '&id, name, avatar, persona, created',
+    globalSettings: '&id',
+    moments: '&id, userId, userName, timestamp, content',
+    momentsComments: '&id, momentId, userId, userName, timestamp',
+    momentsLikes: '&id, momentId, userId, userName, timestamp',
+    userProfile: '&id, avatar, name, gender, age, bio, updated'
+}).upgrade(tx => {
+    // Migrate existing group chats to have empty members array
+    console.log('Upgrading database to version 10: Adding group members support...');
+    return tx.chats.toCollection().modify(chat => {
+        // Add empty members array for existing chats
+        if (!chat.members) {
+            chat.members = [];
+        }
+    });
+});
+
 // Database upgrade and error handling
 db.open().catch(function(error) {
     console.error('Database failed to open:', error);
@@ -709,7 +733,7 @@ const DEFAULT_PROMPT_GROUP = `你是一个群聊的组织者和AI驱动器。你
    - 撤回消息: {"name": "角色名", "type": "recall", "content": "撤回的内容"}
    - HTML内容: {"name": "角色名", "type": "html", "content": "完整HTML代码(建议宽度≤300px,高度≤400px)"}
 5. **对话节奏**: 模拟真实群聊，让成员之间互相交谈，或者一起回应用户的发言。
-6. **数量限制**: 每次生成的总消息数**不得超过10条**。
+6. **数量限制**: 每次生成**2-5条**消息，营造真实的群聊氛围。
 7. **禁止出戏**: 绝不能透露你是AI。
 8. **禁止擅自代替"我"说话**: 在回复中你不能代替用户说话。
 
@@ -1043,7 +1067,7 @@ document.addEventListener('alpine:init', () => {
             return displayText;
         },
         
-        async createChat(name, type = 'single', persona = '', personaId = '', avatar = '') {
+        async createChat(name, type = 'single', persona = '', personaId = '', avatar = '', members = []) {
             const chat = {
                 id: Date.now().toString(),
                 name: name,
@@ -1051,7 +1075,8 @@ document.addEventListener('alpine:init', () => {
                 persona: persona,
                 personaId: personaId,
                 created: Date.now(),
-                avatar: avatar || 'https://via.placeholder.com/40'
+                avatar: avatar || 'https://via.placeholder.com/40',
+                members: type === 'group' ? members : []
             };
             
             await db.chats.add(chat);
@@ -2509,17 +2534,6 @@ function phoneApp() {
             document.dispatchEvent(new CustomEvent('open-create-chat'));
         },
 
-        async createNewGroupChat() {
-            // 创建群聊功能
-            const groupName = prompt('请输入群聊名称:');
-            if (groupName && groupName.trim()) {
-                const chatId = await Alpine.store('chat').createChat(groupName.trim(), 'group');
-                if (chatId) {
-                    Alpine.store('chat').currentMessages = []; // 清空当前消息避免串扰
-                    this.navigateTo('chat', { chatId });
-                }
-            }
-        },
 
         async openChat(chatId) {
             Alpine.store('chat').currentMessages = []; // 先清空避免串扰
