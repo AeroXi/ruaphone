@@ -53,6 +53,21 @@ db.version(9).stores({
     userProfile: '&id, avatar, name, gender, age, bio, updated'
 });
 
+// Version 10: Add group chat members support
+db.version(10).stores({
+    chats: '&id, name, type, personaId, created',
+    messages: '&id, chatId, timestamp, role, type, voiceAudio', 
+    apiConfig: '&id',
+    voiceApiConfig: '&id',
+    worldBooks: '&id, name, enabled, created',
+    personas: '&id, name, avatar, persona, created',
+    globalSettings: '&id',
+    moments: '&id, userId, userName, timestamp, content',
+    momentsComments: '&id, momentId, userId, userName, timestamp',
+    momentsLikes: '&id, momentId, userId, userName, timestamp',
+    userProfile: '&id, avatar, name, gender, age, bio, updated'
+});
+
 // Database upgrade and error handling
 db.open().catch(function(error) {
     console.error('Database failed to open:', error);
@@ -1043,7 +1058,7 @@ document.addEventListener('alpine:init', () => {
             return displayText;
         },
         
-        async createChat(name, type = 'single', persona = '', personaId = '', avatar = '') {
+        async createChat(name, type = 'single', persona = '', personaId = '', avatar = '', members = []) {
             const chat = {
                 id: Date.now().toString(),
                 name: name,
@@ -1053,6 +1068,17 @@ document.addEventListener('alpine:init', () => {
                 created: Date.now(),
                 avatar: avatar || 'https://via.placeholder.com/40'
             };
+            
+            // For group chats, add members array (ensure it's serializable)
+            if (type === 'group' && members && members.length > 0) {
+                // Convert members to plain serializable objects
+                chat.members = members.map(member => ({
+                    name: member.name,
+                    persona: member.persona,
+                    avatar: member.avatar || 'https://via.placeholder.com/40'
+                }));
+                chat.myNickname = '我'; // Default nickname for user
+            }
             
             await db.chats.add(chat);
             await this.loadChats();
@@ -2510,11 +2536,60 @@ function phoneApp() {
         },
 
         async createNewGroupChat() {
-            // 创建群聊功能
+            // 创建群聊功能 - 简化版本，确保数据结构正确
             const groupName = prompt('请输入群聊名称:');
             if (groupName && groupName.trim()) {
-                const chatId = await Alpine.store('chat').createChat(groupName.trim(), 'group');
+                // 获取群成员数量
+                const memberCountStr = prompt('请输入群成员数量（至少2个）:');
+                const memberCount = parseInt(memberCountStr);
+                
+                if (isNaN(memberCount) || memberCount < 2) {
+                    alert('群成员数量必须至少为2个');
+                    return;
+                }
+                
+                // 收集群成员信息
+                const members = [];
+                for (let i = 1; i <= memberCount; i++) {
+                    const name = prompt(`请输入第${i}个成员的名称:`);
+                    if (!name || !name.trim()) {
+                        alert('成员名称不能为空');
+                        return;
+                    }
+                    
+                    const persona = prompt(`请输入${name}的角色设定:`);
+                    if (!persona || !persona.trim()) {
+                        alert('角色设定不能为空');
+                        return;
+                    }
+                    
+                    members.push({
+                        name: name.trim(),
+                        persona: persona.trim(),
+                        avatar: 'https://via.placeholder.com/40'
+                    });
+                }
+                
+                // 获取用户昵称
+                const myNickname = prompt('请输入你在群里的昵称:', '我');
+                
+                const chatId = await Alpine.store('chat').createChat(
+                    groupName.trim(), 
+                    'group', 
+                    '', // persona
+                    '', // personaId
+                    'https://via.placeholder.com/40', // avatar
+                    members // members array
+                );
+                
                 if (chatId) {
+                    // 更新用户昵称
+                    const chat = Alpine.store('chat').chats.find(c => c.id === chatId);
+                    if (chat) {
+                        chat.myNickname = myNickname || '我';
+                        await db.chats.update(chatId, { myNickname: chat.myNickname });
+                    }
+                    
                     Alpine.store('chat').currentMessages = []; // 清空当前消息避免串扰
                     this.navigateTo('chat', { chatId });
                 }
