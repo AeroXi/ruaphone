@@ -2266,3 +2266,135 @@ body {
 .scale-indicator i {
     font-size: 10px;
 }
+
+/* Group Chat Modal Styles */
+.persona-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 8px;
+    background: #F2F2F7;
+    border-radius: 8px;
+}
+
+.persona-checkbox-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 8px;
+    background: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.persona-checkbox-item:hover {
+    background: #E5E5EA;
+}
+
+.persona-checkbox-item.selected {
+    border-color: #007AFF;
+    background: #E8F4FD;
+}
+
+.persona-checkbox {
+    margin-bottom: 8px;
+}
+
+.persona-mini-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.persona-mini-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.persona-mini-name {
+    font-size: 12px;
+    text-align: center;
+    color: #333;
+    word-break: break-all;
+}
+
+.selected-members-preview {
+    margin-top: 16px;
+    padding: 12px;
+    background: #F8F9FA;
+    border-radius: 8px;
+}
+
+.selected-members-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.member-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    background: #007AFF;
+    color: white;
+    border-radius: 16px;
+    font-size: 13px;
+}
+
+.remove-tag {
+    margin-left: 6px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Group Chat UI Enhancements */
+.group-member-count {
+    font-size: 12px;
+    color: #8E8E93;
+    margin-left: 6px;
+    font-weight: normal;
+}
+
+.group-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    background: #007AFF;
+    color: white;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    border: 2px solid white;
+}
+
+.chat-member-count {
+    font-size: 12px;
+    color: #8E8E93;
+    margin-left: 4px;
+}
+
+.list-item-avatar-container {
+    position: relative;
+}

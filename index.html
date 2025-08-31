@@ -108,7 +108,7 @@
                             <button class="header-button" @click="$dispatch('open-create-chat')" title="私聊">
                                 <i class="fas fa-user"></i>
                             </button>
-                            <button class="header-button" @click="createNewGroupChat()" title="群聊">
+                            <button class="header-button" @click="$dispatch('open-create-group-chat')" title="群聊">
                                 <i class="fas fa-users"></i>
                             </button>
                         </div>
@@ -122,9 +122,17 @@
                                              :src="chat.avatar" 
                                              :alt="chat.name"
                                              class="list-item-avatar">
+                                        <div x-show="chat.type === 'group'" class="group-indicator">
+                                            <i class="fas fa-users"></i>
+                                        </div>
                                     </div>
                                     <div class="list-item-content">
-                                        <div class="list-item-title" x-text="chat.name"></div>
+                                        <div class="list-item-title">
+                                            <span x-text="chat.name"></span>
+                                            <span x-show="chat.type === 'group' && chat.personaIds" 
+                                                  class="chat-member-count"
+                                                  x-text="`(${chat.personaIds?.length || 0})`"></span>
+                                        </div>
                                         <div class="list-item-subtitle" x-text="chat.lastMessage || '暂无消息'"></div>
                                     </div>
                                 </div>
@@ -134,7 +142,7 @@
                             <p class="text-secondary">暂无聊天记录</p>
                             <div class="button-group mt-4">
                                 <button class="button" @click="$dispatch('open-create-chat')">创建私聊</button>
-                                <button class="button" @click="createNewGroupChat()">创建群聊</button>
+                                <button class="button" @click="$dispatch('open-create-group-chat')">创建群聊</button>
                             </div>
                         </div>
                     </div>
@@ -146,7 +154,12 @@
                         <button class="header-button" @click="$store.app.navigateTo('chat-list')">
                             <i class="fas fa-arrow-left"></i>
                         </button>
-                        <div class="header-title" x-text="$store.app.isLoading ? '对方正在输入...' : (currentChat?.name || '聊天')"></div>
+                        <div class="header-title">
+                            <span x-text="$store.app.isLoading ? '对方正在输入...' : (currentChat?.name || '聊天')"></span>
+                            <span x-show="currentChat?.type === 'group' && currentChat?.personaIds" 
+                                  class="group-member-count"
+                                  x-text="`(${currentChat?.personaIds?.length || 0}人)`"></span>
+                        </div>
                         <div style="width: 32px;"></div>
                     </div>
                     
@@ -187,12 +200,21 @@
                                                      @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
                                                 <span x-show="!$store.profile.profile.avatar">👤</span>
                                             </div>
-                                            <div x-show="message.role === 'assistant'" class="ai-avatar">
-                                                <img x-show="currentChat?.avatar && currentChat.avatar !== 'https://via.placeholder.com/40'" 
-                                                     :src="currentChat?.avatar" 
-                                                     :alt="currentChat?.name"
+                                            <div x-show="message.role === 'assistant'" class="ai-avatar"
+                                                 x-data="{
+                                                     getGroupMemberAvatar() {
+                                                         if (currentChat?.type === 'group' && message.senderName && currentChat?.members) {
+                                                             const member = currentChat.members.find(m => m.name === message.senderName);
+                                                             return member?.avatar || 'https://via.placeholder.com/40';
+                                                         }
+                                                         return currentChat?.avatar || 'https://via.placeholder.com/40';
+                                                     }
+                                                 }">
+                                                <img x-show="getGroupMemberAvatar() && getGroupMemberAvatar() !== 'https://via.placeholder.com/40'" 
+                                                     :src="getGroupMemberAvatar()" 
+                                                     :alt="message.senderName || currentChat?.name"
                                                      @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='inline';">
-                                                <span x-show="!currentChat?.avatar || currentChat.avatar === 'https://via.placeholder.com/40'">🤖</span>
+                                                <span x-show="!getGroupMemberAvatar() || getGroupMemberAvatar() === 'https://via.placeholder.com/40'">🤖</span>
                                             </div>
                                         </div>
 
@@ -1432,6 +1454,112 @@
                             showCreateChatModal = false;
                         });
                     ">创建</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Group Chat Modal -->
+        <div class="modal" :class="{ active: showGroupChatModal }"
+             x-data="{
+                 showGroupChatModal: false,
+                 groupName: '',
+                 selectedPersonaIds: [],
+                 init() {
+                     console.log('Group Chat Modal initialized');
+                 },
+                 togglePersona(personaId) {
+                     const index = this.selectedPersonaIds.indexOf(personaId);
+                     if (index > -1) {
+                         this.selectedPersonaIds.splice(index, 1);
+                     } else {
+                         this.selectedPersonaIds.push(personaId);
+                     }
+                 },
+                 isSelected(personaId) {
+                     return this.selectedPersonaIds.includes(personaId);
+                 },
+                 getSelectedPersonas() {
+                     return $store.personas.personas.filter(p => this.selectedPersonaIds.includes(p.id));
+                 }
+             }"
+             @open-create-group-chat.window="
+                 groupName = '';
+                 selectedPersonaIds = [];
+                 showGroupChatModal = true;
+             ">
+            <div class="modal-overlay" @click="showGroupChatModal = false"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>创建群聊</h3>
+                    <button class="close-button" @click="showGroupChatModal = false">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>群聊名称</label>
+                        <input type="text" 
+                               x-model="groupName" 
+                               placeholder="请输入群聊名称"
+                               class="form-input">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>选择群成员 <span class="text-secondary">(至少选择2个)</span></label>
+                        <div class="persona-grid">
+                            <template x-for="persona in $store.personas.personas" :key="persona.id">
+                                <div class="persona-checkbox-item" 
+                                     :class="{ 'selected': isSelected(persona.id) }"
+                                     @click="togglePersona(persona.id)">
+                                    <div class="persona-checkbox">
+                                        <input type="checkbox" 
+                                               :checked="isSelected(persona.id)"
+                                               @click.stop
+                                               @change="togglePersona(persona.id)">
+                                    </div>
+                                    <div class="persona-mini-avatar">
+                                        <img :src="persona.avatar" :alt="persona.name">
+                                    </div>
+                                    <div class="persona-mini-name" x-text="persona.name"></div>
+                                </div>
+                            </template>
+                        </div>
+                        
+                        <div x-show="selectedPersonaIds.length > 0" class="selected-members-preview">
+                            <strong>已选择 <span x-text="selectedPersonaIds.length"></span> 个成员：</strong>
+                            <div class="selected-members-list">
+                                <template x-for="persona in getSelectedPersonas()" :key="persona.id">
+                                    <span class="member-tag">
+                                        <span x-text="persona.name"></span>
+                                        <button @click="togglePersona(persona.id)" class="remove-tag">×</button>
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="button secondary" @click="showGroupChatModal = false">取消</button>
+                    <button class="button primary" 
+                            :disabled="!groupName.trim() || selectedPersonaIds.length < 2"
+                            @click="
+                                if (!groupName.trim()) {
+                                    alert('请输入群聊名称');
+                                    return;
+                                }
+                                if (selectedPersonaIds.length < 2) {
+                                    alert('请至少选择2个群成员');
+                                    return;
+                                }
+                                const selectedPersonas = getSelectedPersonas();
+                                $store.chat.createGroupChat(groupName.trim(), selectedPersonaIds, selectedPersonas).then(chatId => {
+                                    if (chatId) {
+                                        $store.chat.currentMessages = [];
+                                        $store.app.navigateTo('chat', { chatId });
+                                        showGroupChatModal = false;
+                                    }
+                                });
+                            ">创建群聊</button>
                 </div>
             </div>
         </div>
