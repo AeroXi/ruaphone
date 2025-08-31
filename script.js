@@ -708,8 +708,8 @@ const DEFAULT_PROMPT_GROUP = `你是一个群聊的组织者和AI驱动器。你
    - 转账消息: {"name": "角色名", "type": "transfer", "amount": 金额, "note": "备注"}
    - 撤回消息: {"name": "角色名", "type": "recall", "content": "撤回的内容"}
    - HTML内容: {"name": "角色名", "type": "html", "content": "完整HTML代码(建议宽度≤300px,高度≤400px)"}
-5. **对话节奏**: 模拟真实群聊，让成员之间互相交谈，或者一起回应用户的发言。
-6. **数量限制**: 每次生成的总消息数**不得超过10条**。
+5. **对话节奏**: 模拟真实群聊，根据上下文选择合适的角色发言或互动。
+6. **数量限制**: 每次生成2-5条消息。
 7. **禁止出戏**: 绝不能透露你是AI。
 8. **禁止擅自代替"我"说话**: 在回复中你不能代替用户说话。
 
@@ -1043,7 +1043,7 @@ document.addEventListener('alpine:init', () => {
             return displayText;
         },
         
-        async createChat(name, type = 'single', persona = '', personaId = '', avatar = '') {
+        async createChat(name, type = 'single', persona = '', personaId = '', avatar = '', members = []) {
             const chat = {
                 id: Date.now().toString(),
                 name: name,
@@ -1053,7 +1053,11 @@ document.addEventListener('alpine:init', () => {
                 created: Date.now(),
                 avatar: avatar || 'https://via.placeholder.com/40'
             };
-            
+
+            if (type === 'group') {
+                chat.members = members;
+            }
+
             await db.chats.add(chat);
             await this.loadChats();
             return chat.id;
@@ -1218,25 +1222,44 @@ document.addEventListener('alpine:init', () => {
                 const messagesPayload = [
                     { role: 'system', content: systemPrompt },
                     ...recentMessages.map(msg => {
-                        // Handle image messages with the new OpenAI format
-                        if (msg.type === 'image' && msg.imageUrl) {
+                        if (chatType === 'group') {
+                            const speaker = msg.role === 'user'
+                                ? (chat.myNickname || '我')
+                                : (msg.senderName || '群成员');
+                            if (msg.type === 'image' && msg.imageUrl) {
+                                return {
+                                    role: msg.role,
+                                    content: [
+                                        { type: 'text', text: `${speaker}:` },
+                                        { type: 'image_url', image_url: { url: msg.imageUrl } }
+                                    ]
+                                };
+                            }
                             return {
                                 role: msg.role,
-                                content: [
-                                    { 
-                                        type: "image_url", 
-                                        image_url: { 
-                                            url: msg.imageUrl 
+                                content: `${speaker}: ${msg.content}`
+                            };
+                        } else {
+                            // Handle image messages with the new OpenAI format
+                            if (msg.type === 'image' && msg.imageUrl) {
+                                return {
+                                    role: msg.role,
+                                    content: [
+                                        {
+                                            type: "image_url",
+                                            image_url: {
+                                                url: msg.imageUrl
+                                            }
                                         }
-                                    }
-                                ]
+                                    ]
+                                };
+                            }
+                            // Handle regular text messages
+                            return {
+                                role: msg.role,
+                                content: msg.content
                             };
                         }
-                        // Handle regular text messages
-                        return {
-                            role: msg.role,
-                            content: msg.content
-                        };
                     })
                 ];
                 
@@ -2510,15 +2533,8 @@ function phoneApp() {
         },
 
         async createNewGroupChat() {
-            // 创建群聊功能
-            const groupName = prompt('请输入群聊名称:');
-            if (groupName && groupName.trim()) {
-                const chatId = await Alpine.store('chat').createChat(groupName.trim(), 'group');
-                if (chatId) {
-                    Alpine.store('chat').currentMessages = []; // 清空当前消息避免串扰
-                    this.navigateTo('chat', { chatId });
-                }
-            }
+            // 使用模态框创建群聊
+            document.dispatchEvent(new CustomEvent('open-create-group-chat'));
         },
 
         async openChat(chatId) {
