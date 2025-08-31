@@ -1590,8 +1590,8 @@ document.addEventListener('alpine:init', () => {
                         continue;
                     }
                     
-                    // For transfer messages, content can be empty
-                    if (aiMessage.type !== 'transfer' && (!aiMessage.content || aiMessage.content.trim().length === 0)) {
+                    // For transfer and image messages, content can be empty
+                    if (aiMessage.type !== 'transfer' && aiMessage.type !== 'image' && (!aiMessage.content || aiMessage.content.trim().length === 0)) {
                         continue;
                     }
                     
