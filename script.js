@@ -1076,23 +1076,26 @@ document.addEventListener('alpine:init', () => {
 
         async createGroupChat(name, personaIds, personas) {
             // Create group chat with multiple personas
+            // Convert personas to plain objects to avoid IndexedDB cloning issues
+            const members = personas.map(p => ({
+                id: p.id,
+                name: p.name,
+                persona: p.persona || '',
+                avatar: p.avatar || 'https://via.placeholder.com/40'
+            }));
+            
             const chat = {
                 id: Date.now().toString(),
                 name: name,
                 type: 'group',
-                personaIds: personaIds, // Array of persona IDs
-                personas: personas, // Array of persona objects for reference
-                members: personas.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    persona: p.persona,
-                    avatar: p.avatar
-                })), // Format for prompt builder
+                personaIds: [...personaIds], // Clone array to ensure it's a plain array
+                members: members, // Store plain objects for prompt builder
                 myNickname: Alpine.store('profile').profile.name || '我',
                 created: Date.now(),
                 avatar: 'https://via.placeholder.com/40' // Default group avatar
             };
             
+            // Don't store the original personas array as it may contain non-cloneable objects
             await db.chats.add(chat);
             await this.loadChats();
             return chat.id;
