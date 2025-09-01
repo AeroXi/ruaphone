@@ -2373,6 +2373,14 @@ body {
     font-weight: normal;
 }
 
+.group-sender-name {
+    font-size: 12px;
+    color: #007AFF;
+    font-weight: 500;
+    margin-bottom: 4px;
+    opacity: 0.8;
+}
+
 .group-indicator {
     position: absolute;
     bottom: 0;

@@ -723,10 +723,11 @@ const DEFAULT_PROMPT_GROUP = `你是一个群聊的组织者和AI驱动器。你
    - 转账消息: {"name": "角色名", "type": "transfer", "amount": 金额, "note": "备注"}
    - 撤回消息: {"name": "角色名", "type": "recall", "content": "撤回的内容"}
    - HTML内容: {"name": "角色名", "type": "html", "content": "完整HTML代码(建议宽度≤300px,高度≤400px)"}
-5. **对话节奏**: 模拟真实群聊，让成员之间互相交谈，或者一起回应用户的发言。每次生成2-5条消息，根据上下文自动决定谁发言。
-6. **数量限制**: 每次生成2-5条消息，确保对话连贯自然。
-7. **禁止出戏**: 绝不能透露你是AI。
-8. **禁止擅自代替"我"说话**: 在回复中你不能代替用户说话。
+5. **消息内容格式**: message字段和content字段中只包含纯消息内容，不要包含角色名或任何前缀。角色身份由name字段标识。
+6. **对话节奏**: 模拟真实群聊，让成员之间互相交谈，或者一起回应用户的发言。每次生成2-5条消息，根据上下文自动决定谁发言。
+7. **数量限制**: 每次生成2-5条消息，确保对话连贯自然。
+8. **禁止出戏**: 绝不能透露你是AI。
+9. **禁止擅自代替"我"说话**: 在回复中你不能代替用户说话。
 
 # 特殊消息使用场景
 - **图片消息**: 当角色想要分享图片、照片、截图或视觉内容时
@@ -737,6 +738,19 @@ const DEFAULT_PROMPT_GROUP = `你是一个群聊的组织者和AI驱动器。你
 
 # 群成员列表及人设
 {membersList}
+
+# 输出格式示例
+正确示例：
+[
+  {"name": "小明", "message": "大家好！今天天气真不错呢"},
+  {"name": "小红", "type": "voice", "content": "是啊，要不要一起出去走走？"}
+]
+
+错误示例（请勿模仿）：
+[
+  {"name": "小明", "message": "小明: 大家好！今天天气真不错呢"},  // ❌ 不要在消息内容中包含角色名
+  {"name": "小红", "content": "小红说：是啊，要不要一起出去走走？"}  // ❌ 不要添加任何前缀
+]
 
 现在，请根据以上规则和下面的对话历史，继续这场群聊。`;
 
@@ -1275,9 +1289,18 @@ document.addEventListener('alpine:init', () => {
                             };
                         }
                         // Handle regular text messages
+                        let content = msg.content;
+                        
+                        // For group chat messages from assistant with sender name, format properly
+                        if (chat.type === 'group' && msg.role === 'assistant' && msg.senderName) {
+                            // Ensure clean format: "senderName: content" (but clean any existing prefix first)
+                            const cleanContent = content.replace(new RegExp(`^${msg.senderName}:\\s*`), '');
+                            content = `${msg.senderName}: ${cleanContent}`;
+                        }
+                        
                         return {
                             role: msg.role,
-                            content: msg.content
+                            content: content
                         };
                     })
                 ];
@@ -2744,10 +2767,7 @@ function chatInterface() {
         },
         
         getMessageDisplay(message) {
-            // For group chats, show sender name
-            if (message.senderName) {
-                return `${message.senderName}: ${message.content}`;
-            }
+            // Return message content without sender name (sender name is handled by HTML template)
             return message.content || '消息内容为空';
         },
         
