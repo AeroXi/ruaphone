@@ -850,6 +850,56 @@ body {
     background: #0056CC;
 }
 
+/* Empty state styles for chat creation modals */
+.empty-state {
+    text-align: center;
+    padding: 32px 20px;
+}
+
+.empty-state-icon {
+    margin-bottom: 16px;
+}
+
+.empty-state-icon i {
+    font-size: 48px;
+    color: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.empty-state-message {
+    margin-bottom: 24px;
+}
+
+.empty-state-message h4 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.empty-state-message p {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.empty-state .button {
+    background: #007AFF;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.empty-state .button:hover {
+    background: #0056CC;
+}
+
 /* Avatar styles */
 .avatar {
     width: 32px;

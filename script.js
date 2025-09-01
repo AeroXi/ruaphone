@@ -2585,6 +2585,7 @@ function phoneApp() {
             this.navigateTo('chat', { chatId });
         },
 
+
         // World Book functions
         async createNewWorldBook() {
             const name = prompt('请输入世界书名称:');

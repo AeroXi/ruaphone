@@ -10,7 +10,7 @@
     
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=1.14.0">
+    <link rel="stylesheet" href="styles.css?v=1.14.1">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -93,7 +93,7 @@
                     
                     <!-- Version info -->
                     <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #999; font-size: 10px; text-align: center;">
-                        RuaPhone v1.14.0
+                        RuaPhone v1.14.1
                     </div>
                 </div>
 
@@ -784,7 +784,7 @@
                             box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
                         ">
                             <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">
-                                🚀 RuaPhone v1.14.0
+                                🚀 RuaPhone v1.14.1
                             </div>
                             <div style="font-size: 12px; opacity: 0.9;">
                                 可爱的小手机rua~
@@ -1422,7 +1422,22 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <div class="form-group">
+                    <!-- Empty state when no personas exist -->
+                    <div x-show="$store.personas.personas.length === 0" class="empty-state">
+                        <div class="empty-state-icon">
+                            <i class="fas fa-user-friends"></i>
+                        </div>
+                        <div class="empty-state-message">
+                            <h4>还没有角色可用</h4>
+                            <p>请先创建角色才能开始私聊</p>
+                        </div>
+                        <button class="button primary" @click="showCreateChatModal = false; $store.app.navigateTo('personas')">
+                            前往通讯录创建角色
+                        </button>
+                    </div>
+                    
+                    <!-- Normal persona selection when personas exist -->
+                    <div x-show="$store.personas.personas.length > 0" class="form-group">
                         <label>选择人设</label>
                         <div class="persona-selector">
                             <template x-for="persona in $store.personas.personas" :key="persona.id">
@@ -1444,7 +1459,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="button secondary" @click="showCreateChatModal = false">取消</button>
-                    <button class="button primary" @click="
+                    <button x-show="$store.personas.personas.length > 0" class="button primary" @click="
                         if (!selectedPersona) { 
                             alert('请选择一个人设'); 
                             return; 
@@ -1505,7 +1520,40 @@
                                class="form-input">
                     </div>
                     
-                    <div class="form-group">
+                    <!-- Empty state when no personas exist -->
+                    <div x-show="$store.personas.personas.length === 0" class="form-group">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="empty-state-message">
+                                <h4>还没有角色可用</h4>
+                                <p>请先创建至少两个角色才能开始群聊</p>
+                            </div>
+                            <button class="button primary" @click="showGroupChatModal = false; $store.app.navigateTo('personas')">
+                                前往通讯录创建角色
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Insufficient personas state when only 1 persona exists -->
+                    <div x-show="$store.personas.personas.length === 1" class="form-group">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="empty-state-message">
+                                <h4>角色数量不足</h4>
+                                <p>群聊需要至少两个角色，请再创建一个角色</p>
+                            </div>
+                            <button class="button primary" @click="showGroupChatModal = false; $store.app.navigateTo('personas')">
+                                前往通讯录创建角色
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Normal group member selection when sufficient personas exist -->
+                    <div x-show="$store.personas.personas.length >= 2" class="form-group">
                         <label>选择群成员 <span class="text-secondary">(至少选择2个)</span></label>
                         <div class="persona-grid">
                             <template x-for="persona in $store.personas.personas" :key="persona.id">
@@ -1541,7 +1589,7 @@
                 </div>
                 <div class="modal-footer">
                     <button class="button secondary" @click="showGroupChatModal = false">取消</button>
-                    <button class="button primary" 
+                    <button x-show="$store.personas.personas.length >= 2" class="button primary" 
                             :disabled="!groupName.trim() || selectedPersonaIds.length < 2"
                             @click="
                                 if (!groupName.trim()) {
@@ -1736,7 +1784,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=1.14.0"></script>
-    <script src="version-update.js?v=1.14.0"></script>
+    <script src="script.js?v=1.14.1"></script>
+    <script src="version-update.js?v=1.14.1"></script>
 </body>
 </html>
