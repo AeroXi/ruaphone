@@ -10,7 +10,7 @@
     
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=1.14.3">
+    <link rel="stylesheet" href="styles.css?v=1.14.4">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -93,7 +93,7 @@
                     
                     <!-- Version info -->
                     <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #999; font-size: 10px; text-align: center;">
-                        RuaPhone v1.14.3
+                        RuaPhone v1.14.4
                     </div>
                 </div>
 
@@ -116,24 +116,116 @@
                     <div class="content">
                         <div class="list-container" x-show="$store.chat.chats.length > 0">
                             <template x-for="chat in $store.chat.chats" :key="chat.id">
-                                <div class="list-item" @click="openChat(chat.id)">
-                                    <div class="list-item-avatar-container">
-                                        <img x-show="chat.avatar && chat.avatar !== 'https://via.placeholder.com/40'" 
-                                             :src="chat.avatar" 
-                                             :alt="chat.name"
-                                             class="list-item-avatar">
-                                        <div x-show="chat.type === 'group'" class="group-indicator">
-                                            <i class="fas fa-users"></i>
+                                <div class="swipe-container" 
+                                     x-data="{
+                                         startX: 0,
+                                         currentX: 0,
+                                         isDragging: false,
+                                         isOpen: false,
+                                         threshold: 80,
+                                         
+                                         get swipeStyle() {
+                                             const translateX = this.isOpen ? -80 : Math.max(-80, Math.min(0, this.currentX - this.startX));
+                                             return `transform: translateX(${translateX}px); transition: ${this.isDragging ? 'none' : 'transform 0.3s ease'};`;
+                                         },
+                                         
+                                         handleTouchStart(e) {
+                                             this.startX = e.touches[0].clientX;
+                                             this.currentX = e.touches[0].clientX;
+                                             this.isDragging = true;
+                                         },
+                                         
+                                         handleTouchMove(e) {
+                                             if (!this.isDragging) return;
+                                             this.currentX = e.touches[0].clientX;
+                                             e.preventDefault(); // 防止页面滚动
+                                         },
+                                         
+                                         handleTouchEnd(e) {
+                                             if (!this.isDragging) return;
+                                             this.isDragging = false;
+                                             const diff = this.startX - this.currentX;
+                                             
+                                             if (diff > this.threshold) {
+                                                 this.isOpen = true;
+                                             } else {
+                                                 this.isOpen = false;
+                                             }
+                                         },
+                                         
+                                         handleMouseDown(e) {
+                                             this.startX = e.clientX;
+                                             this.currentX = e.clientX;
+                                             this.isDragging = true;
+                                             e.preventDefault();
+                                         },
+                                         
+                                         handleMouseMove(e) {
+                                             if (!this.isDragging) return;
+                                             this.currentX = e.clientX;
+                                         },
+                                         
+                                         handleMouseUp(e) {
+                                             if (!this.isDragging) return;
+                                             this.isDragging = false;
+                                             const diff = this.startX - this.currentX;
+                                             
+                                             if (diff > this.threshold) {
+                                                 this.isOpen = true;
+                                             } else {
+                                                 this.isOpen = false;
+                                             }
+                                         },
+                                         
+                                         handleClick(e) {
+                                             if (this.isOpen) {
+                                                 e.stopPropagation();
+                                                 this.isOpen = false;
+                                             } else {
+                                                 openChat(chat.id);
+                                             }
+                                         },
+                                         
+                                         deleteChat() {
+                                             $store.chat.deleteChat(chat.id);
+                                         }
+                                     }">
+                                    <div class="swipe-content" 
+                                         :style="swipeStyle"
+                                         @touchstart="handleTouchStart"
+                                         @touchmove="handleTouchMove"
+                                         @touchend="handleTouchEnd"
+                                         @mousedown="handleMouseDown"
+                                         @mousemove="handleMouseMove"
+                                         @mouseup="handleMouseUp"
+                                         @mouseleave="handleMouseUp"
+                                         @click="handleClick">
+                                        <div class="list-item">
+                                            <div class="list-item-avatar-container">
+                                                <img x-show="chat.avatar && chat.avatar !== 'https://via.placeholder.com/40'" 
+                                                     :src="chat.avatar" 
+                                                     :alt="chat.name"
+                                                     class="list-item-avatar">
+                                                <div x-show="chat.type === 'group'" class="group-indicator">
+                                                    <i class="fas fa-users"></i>
+                                                </div>
+                                            </div>
+                                            <div class="list-item-content">
+                                                <div class="list-item-title">
+                                                    <span x-text="chat.name"></span>
+                                                    <span x-show="chat.type === 'group' && chat.personaIds" 
+                                                          class="chat-member-count"
+                                                          x-text="`(${chat.personaIds?.length || 0})`"></span>
+                                                </div>
+                                                <div class="list-item-subtitle" x-text="chat.lastMessage || '暂无消息'"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="list-item-content">
-                                        <div class="list-item-title">
-                                            <span x-text="chat.name"></span>
-                                            <span x-show="chat.type === 'group' && chat.personaIds" 
-                                                  class="chat-member-count"
-                                                  x-text="`(${chat.personaIds?.length || 0})`"></span>
-                                        </div>
-                                        <div class="list-item-subtitle" x-text="chat.lastMessage || '暂无消息'"></div>
+                                    <div class="swipe-actions">
+                                        <button class="delete-btn" @click="deleteChat()">
+                                            <i class="fas fa-trash"></i>
+                                            删除
+                                        </button>
                                     </div>
                                 </div>
                             </template>
@@ -785,7 +877,7 @@
                             box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
                         ">
                             <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">
-                                🚀 RuaPhone v1.14.3
+                                🚀 RuaPhone v1.14.4
                             </div>
                             <div style="font-size: 12px; opacity: 0.9;">
                                 可爱的小手机rua~
@@ -1785,7 +1877,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=1.14.3"></script>
-    <script src="version-update.js?v=1.14.3"></script>
+    <script src="script.js?v=1.14.4"></script>
+    <script src="version-update.js?v=1.14.4"></script>
 </body>
 </html>

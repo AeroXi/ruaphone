@@ -403,6 +403,80 @@ body {
     color: var(--text-secondary);
 }
 
+/* Swipe to Delete Styles */
+.swipe-container {
+    position: relative;
+    overflow: hidden;
+    background: white;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.swipe-container:last-child {
+    border-bottom: none;
+}
+
+.swipe-content {
+    position: relative;
+    z-index: 2;
+    background: white;
+    will-change: transform;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.swipe-content .list-item {
+    border-bottom: none;
+    margin: 0;
+}
+
+.swipe-actions {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    z-index: 1;
+    width: 80px;
+}
+
+.delete-btn {
+    background: #FF3B30;
+    color: white;
+    border: none;
+    padding: 0 16px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    width: 100%;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+    outline: none;
+}
+
+.delete-btn:hover {
+    background: #D70015;
+}
+
+.delete-btn:active {
+    background: #B8000F;
+}
+
+.delete-btn i {
+    font-size: 16px;
+}
+
+/* Prevent text selection during swipe */
+.swipe-container.swiping {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
 /* Chat Interface Styles */
 .chat-messages {
     flex: 1;

@@ -1790,6 +1790,33 @@ document.addEventListener('alpine:init', () => {
                 console.error('Error loading world books:', error);
                 return '';
             }
+        },
+        
+        async deleteChat(chatId) {
+            if (!confirm('确定要删除这个聊天吗？此操作不可恢复。')) {
+                return;
+            }
+            
+            try {
+                // 1. 删除所有相关消息
+                await db.messages.where('chatId').equals(chatId).delete();
+                
+                // 2. 删除聊天本身
+                await db.chats.delete(chatId);
+                
+                // 3. 重新加载聊天列表
+                await this.loadChats();
+                
+                // 4. 如果当前正在该聊天页面，返回聊天列表
+                if (Alpine.store('app').currentChatId === chatId) {
+                    Alpine.store('app').navigateTo('chat-list');
+                }
+                
+                console.log('✅ 聊天删除成功:', chatId);
+            } catch (error) {
+                console.error('删除聊天失败:', error);
+                alert('删除失败: ' + error.message);
+            }
         }
     });
 
