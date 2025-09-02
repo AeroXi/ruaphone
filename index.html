@@ -300,6 +300,14 @@
                                                              const persona = $store.personas.personas.find(p => p.name === message.senderName);
                                                              return persona?.avatar || 'https://via.placeholder.com/40';
                                                          }
+                                                         // For single chat, dynamically get avatar from persona
+                                                         if (currentChat?.personaId) {
+                                                             const persona = $store.personas.personas.find(p => p.id === currentChat.personaId);
+                                                             if (persona?.avatar) {
+                                                                 return persona.avatar;
+                                                             }
+                                                         }
+                                                         // Fallback to chat avatar or placeholder
                                                          return currentChat?.avatar || 'https://via.placeholder.com/40';
                                                      }
                                                  }">
@@ -1786,6 +1794,7 @@
                     <div class="form-group">
                         <label>长期记忆</label>
                         <textarea x-model="personaMemory" rows="6" placeholder="角色的长期记忆，每条记忆一行..."></textarea>
+                        <br/>
                         <small style="color: #888; font-size: 12px;">这里的内容会在每次对话时提供给角色，AI也会自动添加新的记忆</small>
                     </div>
                 </div>
