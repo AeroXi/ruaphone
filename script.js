@@ -293,26 +293,39 @@ async function exportAllData(showDownload = true) {
     try {
         console.log('Exporting all data...');
         
+        // Dynamically get all table names from the database
+        const tables = db.tables.map(table => table.name);
+        console.log('Available tables:', tables);
+        
         const exportData = {
-            exportVersion: '1.0',
+            exportVersion: '2.0', // Updated export version for dynamic tables
             exportDate: new Date().toISOString(),
-            appVersion: 5, // Current database version
+            appVersion: db.verno, // Get actual database version dynamically
+            tables: tables, // Include table list for reference
             data: {}
         };
         
-        // Export all table data
-        const tables = ['chats', 'messages', 'apiConfig', 'worldBooks', 'presets', 'personas', 'globalSettings', 'moments', 'momentsComments', 'momentsLikes'];
+        // Export all table data dynamically
+        let totalRecords = 0;
         
         for (const tableName of tables) {
             try {
                 const tableData = await db[tableName].toArray();
                 exportData.data[tableName] = tableData;
+                totalRecords += tableData.length;
                 console.log(`Exported ${tableName}: ${tableData.length} records`);
             } catch (error) {
                 console.warn(`Failed to export ${tableName}:`, error);
                 exportData.data[tableName] = [];
             }
         }
+        
+        // Add export summary
+        exportData.summary = {
+            totalTables: tables.length,
+            totalRecords: totalRecords,
+            browser: navigator.userAgent
+        };
         
         // Create downloadable file if requested
         if (showDownload) {
@@ -395,12 +408,25 @@ async function importAllData(importData = null, showFileInput = true) {
         console.log('Export date:', dataToImport.exportDate);
         console.log('App version:', dataToImport.appVersion);
         
+        // Get current database tables
+        const currentTables = db.tables.map(table => table.name);
+        console.log('Current database tables:', currentTables);
+        
+        // Get tables from import data
+        const importTables = Object.keys(dataToImport.data);
+        console.log('Tables in import file:', importTables);
+        
         // Confirm import with user if showing UI
         if (showFileInput) {
+            const totalRecords = dataToImport.summary?.totalRecords || 
+                Object.values(dataToImport.data).reduce((sum, table) => sum + (table?.length || 0), 0);
+            
             const confirmImport = confirm(
                 `📥 导入数据确认\n\n` +
                 `备份日期: ${dataToImport.exportDate ? new Date(dataToImport.exportDate).toLocaleString('zh-CN') : '未知'}\n` +
-                `数据版本: ${dataToImport.appVersion || '未知'}\n\n` +
+                `数据版本: ${dataToImport.appVersion || '未知'}\n` +
+                `包含表格: ${importTables.length} 个\n` +
+                `总记录数: ${totalRecords} 条\n\n` +
                 `⚠️ 警告: 导入将覆盖所有现有数据！\n\n` +
                 `确定要继续导入吗？此操作无法撤销。`
             );
@@ -411,25 +437,42 @@ async function importAllData(importData = null, showFileInput = true) {
             }
         }
         
-        // Clear existing data and import new data
-        const tables = ['chats', 'messages', 'apiConfig', 'worldBooks', 'presets', 'personas', 'globalSettings', 'moments', 'momentsComments', 'momentsLikes'];
+        // Import data dynamically
+        let importedTables = 0;
+        let importedRecords = 0;
+        let skippedTables = [];
         
-        for (const tableName of tables) {
+        // Process each table in the import data
+        for (const tableName in dataToImport.data) {
             try {
-                // Clear existing data
-                await db[tableName].clear();
-                
-                // Import new data if available
-                const tableData = dataToImport.data[tableName] || [];
-                if (tableData.length > 0) {
-                    await db[tableName].bulkAdd(tableData);
+                // Check if table exists in current database
+                if (db[tableName]) {
+                    // Clear existing data
+                    await db[tableName].clear();
+                    
+                    // Import new data if available
+                    const tableData = dataToImport.data[tableName] || [];
+                    if (tableData.length > 0) {
+                        await db[tableName].bulkAdd(tableData);
+                        importedRecords += tableData.length;
+                    }
+                    
+                    importedTables++;
+                    console.log(`✅ Imported ${tableName}: ${tableData.length} records`);
+                } else {
+                    // Table doesn't exist in current database version
+                    console.warn(`⚠️ Table '${tableName}' not found in current database, skipping...`);
+                    skippedTables.push(tableName);
                 }
-                
-                console.log(`Imported ${tableName}: ${tableData.length} records`);
             } catch (error) {
-                console.warn(`Failed to import ${tableName}:`, error);
+                console.error(`❌ Failed to import ${tableName}:`, error);
                 // Continue with other tables even if one fails
             }
+        }
+        
+        console.log(`Import summary: ${importedTables} tables, ${importedRecords} records imported`);
+        if (skippedTables.length > 0) {
+            console.log('Skipped tables (not in current version):', skippedTables);
         }
         
         // Reload all Alpine stores
@@ -446,7 +489,13 @@ async function importAllData(importData = null, showFileInput = true) {
                 console.log('All stores reloaded after import');
                 
                 if (showFileInput) {
-                    alert('✅ 数据导入成功！页面将刷新以应用更改。');
+                    alert(
+                        `✅ 数据导入成功！\n\n` +
+                        `导入了 ${importedTables} 个表格\n` +
+                        `共 ${importedRecords} 条记录\n` +
+                        (skippedTables.length > 0 ? `\n跳过了 ${skippedTables.length} 个不兼容的表格\n` : '') +
+                        `\n页面将自动刷新以加载新数据。`
+                    );
                     window.location.reload();
                 }
             } catch (error) {

@@ -1,7 +1,7 @@
 // 版本更新检查器
 class VersionUpdater {
     constructor() {
-        this.currentVersion = '1.14.4';
+        this.currentVersion = '1.15.0';
         this.checkInterval = 600000; // 30秒检查一次
         this.init();
     }
