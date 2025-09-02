@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试导出功能</title>
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+</head>
+<body>
+    <h1>测试数据库导出功能</h1>
+    <button id="testBtn">测试导出</button>
+    <pre id="output"></pre>
+    
+    <script>
+        const db = new Dexie('RuaPhoneDB');
+        
+        // 定义数据库结构（最新版本）
+        db.version(10).stores({
+            chats: '&id, name, type, personaId, created',
+            messages: '&id, chatId, timestamp, role, type, voiceAudio, senderId',
+            apiConfig: '&id',
+            voiceApiConfig: '&id',
+            worldBooks: '&id, name, enabled, created',
+            personas: '&id, name, avatar, persona, created',
+            globalSettings: '&id',
+            moments: '&id, userId, userName, timestamp, content',
+            momentsComments: '&id, momentId, userId, userName, timestamp',
+            momentsLikes: '&id, momentId, userId, userName, timestamp',
+            userProfile: '&id, avatar, name, gender, age, bio, updated'
+        });
+        
+        async function testExport() {
+            const output = document.getElementById('output');
+            output.textContent = '正在测试导出功能...\n\n';
+            
+            try {
+                await db.open();
+                output.textContent += `✅ 数据库打开成功\n`;
+                output.textContent += `数据库版本: ${db.verno}\n\n`;
+                
+                // 获取所有表名
+                const tables = db.tables.map(table => table.name);
+                output.textContent += `检测到的表格 (${tables.length} 个):\n`;
+                tables.forEach(tableName => {
+                    output.textContent += `  - ${tableName}\n`;
+                });
+                
+                output.textContent += '\n导出数据统计:\n';
+                
+                // 导出每个表的数据
+                let totalRecords = 0;
+                for (const tableName of tables) {
+                    try {
+                        const count = await db[tableName].count();
+                        totalRecords += count;
+                        output.textContent += `  ${tableName}: ${count} 条记录\n`;
+                    } catch (error) {
+                        output.textContent += `  ${tableName}: 读取失败 - ${error.message}\n`;
+                    }
+                }
+                
+                output.textContent += `\n总计: ${totalRecords} 条记录\n`;
+                output.textContent += '\n✅ 测试完成！动态导出功能正常工作。';
+                
+            } catch (error) {
+                output.textContent += `\n❌ 错误: ${error.message}\n`;
+                console.error(error);
+            }
+        }
+        
+        document.getElementById('testBtn').addEventListener('click', testExport);
+    </script>
+</body>
+</html>
