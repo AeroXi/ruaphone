@@ -10,7 +10,7 @@
     
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=1.15.0">
+    <link rel="stylesheet" href="styles.css?v=1.16.0">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -93,7 +93,7 @@
                     
                     <!-- Version info -->
                     <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #999; font-size: 10px; text-align: center;">
-                        RuaPhone v1.15.0
+                        RuaPhone v1.16.0
                     </div>
                 </div>
 
@@ -877,7 +877,7 @@
                             box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
                         ">
                             <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">
-                                🚀 RuaPhone v1.15.0
+                                🚀 RuaPhone v1.16.0
                             </div>
                             <div style="font-size: 12px; opacity: 0.9;">
                                 可爱的小手机rua~
@@ -1714,6 +1714,7 @@
                  personaName: '',
                  personaAvatar: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiNFNUU1RUEiLz4KPHN2ZyB4PSIyMCIgeT0iMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIj4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzk5OTk5OSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgo8cGF0aCBkPSJtMjAgMjEtMTYtMTZtMCAwIDMuNSAzLjVNMTcgMTcuNSA2IDciLz4KPHN2Zz4KPC9zdmc+Cjwvc3ZnPgo=',
                  personaText: '',
+                 personaMemory: '',
                  init() {
                      console.log('Persona Modal initialized:', this.showPersonaModal);
                  },
@@ -1735,6 +1736,7 @@
                  personaName = '';
                  personaAvatar = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iNDAiIGN5PSI0MCIgcj0iNDAiIGZpbGw9IiNFNUU1RUEiLz4KPHN2ZyB4PSIyMCIgeT0iMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIj4KPHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzk5OTk5OSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgo8cGF0aCBkPSJtMjAgMjEtMTYtMTZtMCAwIDMuNSAzLjVNMTcgMTcuNSA2IDciLz4KPHN2Zz4KPC9zdmc+Cjwvc3ZnPgo=';
                  personaText = '';
+                 personaMemory = '';
                  showPersonaModal = true;
              "
              @edit-persona.window="
@@ -1742,6 +1744,7 @@
                  personaName = $event.detail.name;
                  personaAvatar = $event.detail.avatar;
                  personaText = $event.detail.persona;
+                 personaMemory = $event.detail.memory || '';
                  showPersonaModal = true;
              ">
             <div class="modal-overlay" @click="showPersonaModal = false"></div>
@@ -1780,6 +1783,11 @@
                         <label>人设描述</label>
                         <textarea x-model="personaText" rows="6" placeholder="请输入详细的人设描述..."></textarea>
                     </div>
+                    <div class="form-group">
+                        <label>长期记忆</label>
+                        <textarea x-model="personaMemory" rows="6" placeholder="角色的长期记忆，每条记忆一行..."></textarea>
+                        <small style="color: #888; font-size: 12px;">这里的内容会在每次对话时提供给角色，AI也会自动添加新的记忆</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button class="button secondary" @click="showPersonaModal = false">取消</button>
@@ -1792,13 +1800,15 @@
                             $store.personas.updatePersona(editingPersonaId, {
                                 name: personaName.trim(),
                                 avatar: personaAvatar,
-                                persona: personaText.trim()
+                                persona: personaText.trim(),
+                                memory: personaMemory.trim()
                             }).then(() => { showPersonaModal = false; });
                         } else {
                             $store.personas.createPersona(
                                 personaName.trim(),
                                 personaAvatar,
-                                personaText.trim()
+                                personaText.trim(),
+                                personaMemory.trim()
                             ).then(() => { showPersonaModal = false; });
                         }
                     " x-text="editingPersonaId ? '保存' : '创建'"></button>
@@ -1877,7 +1887,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=1.15.0"></script>
-    <script src="version-update.js?v=1.15.0"></script>
+    <script src="script.js?v=1.16.0"></script>
+    <script src="version-update.js?v=1.16.0"></script>
 </body>
 </html>

@@ -68,6 +68,21 @@ db.version(10).stores({
     userProfile: '&id, avatar, name, gender, age, bio, updated'
 });
 
+// Version 11: Add memory field to personas
+db.version(11).stores({
+    chats: '&id, name, type, personaId, personaIds, created',
+    messages: '&id, chatId, timestamp, role, type, voiceAudio, senderId',
+    apiConfig: '&id',
+    voiceApiConfig: '&id',
+    worldBooks: '&id, name, enabled, created',
+    personas: '&id, name, avatar, persona, memory, created', // Add memory field
+    globalSettings: '&id',
+    moments: '&id, userId, userName, timestamp, content',
+    momentsComments: '&id, momentId, userId, userName, timestamp',
+    momentsLikes: '&id, momentId, userId, userName, timestamp',
+    userProfile: '&id, avatar, name, gender, age, bio, updated'
+});
+
 // Database upgrade and error handling
 db.open().catch(function(error) {
     console.error('Database failed to open:', error);
@@ -701,6 +716,9 @@ const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色
 # 你的角色设定：
 {char.persona}
 
+# 你的长期记忆：
+{char.memory}
+
 # 对话者的角色设定：
 {user.persona}
 
@@ -714,6 +732,7 @@ const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色
 7. 当用户说今天你们做了什么事时，顺着ta的话说即可，就当做你们真的做了这件事。
 8.对话内容要符合世界观。
 9.你能理解用户的引用消息，并且在对话中需要引用时引用用户的消息。特别是用户讲了多个话题，避免造成歧义就引用。引用消息是普通文本消息，格式是 quote<被引用消息>消息内容
+10.当用户告诉你重要信息（如生日、喜好、重要事件等）时，你应该生成一条记忆消息来保存这些信息，以便在未来的对话中记住。
 
 # 特殊消息能力
 你可以发送以下类型的特殊消息：
@@ -737,6 +756,11 @@ const DEFAULT_PROMPT_SINGLE = `你现在扮演一个名为"{chat.name}"的角色
 ## HTML互动内容
 当你想要创建交互式界面或可视化内容时（比如外卖APP、小游戏、表单、图表等），使用以下格式：
 {"type": "html", "content": "完整的HTML代码"}
+
+## 记忆消息
+当你需要保存重要的长期记忆时（比如用户的重要信息、特殊经历、重要约定等），使用以下格式：
+{"type": "memory", "content": "需要记住的内容"}
+注意：记忆消息不会显示给用户，只会保存在你的长期记忆中。每次对话时你都能看到你的长期记忆。
 
 HTML消息使用指南：
 - content必须包含完整的HTML内容，支持内嵌CSS和JavaScript
@@ -852,12 +876,22 @@ class PromptBuilder {
         } else {
             const userProfileContext = this.buildUserProfileContext();
             
+            // 获取角色的长期记忆
+            let charMemory = '';
+            if (chatData.personaId) {
+                const persona = await db.personas.get(chatData.personaId);
+                if (persona && persona.memory) {
+                    charMemory = persona.memory;
+                }
+            }
+            
             systemPrompt = template
                 .replace('{chat.name}', chatData.name)
                 .replace('{currentTime}', context.currentTime)
                 .replace('{myAddress}', context.myAddress || '未知城市')
                 .replace('{worldBookContent}', context.worldBookContent || '')
                 .replace('{char.persona}', chatData.persona || '友好的AI助手')
+                .replace('{char.memory}', charMemory || '（暂无记忆）')
                 .replace('{user.persona}', context.userPersona || '普通用户');
             
             // 在私聊中添加用户个人资料
@@ -1723,6 +1757,31 @@ document.addEventListener('alpine:init', () => {
                         continue;
                     }
                     
+                    // Handle memory messages specially
+                    if (aiMessage.type === 'memory' && aiMessage.content) {
+                        // Get the chat to find the persona
+                        const chat = await db.chats.get(chatId);
+                        if (chat && chat.personaId) {
+                            // Get the current persona
+                            const persona = await db.personas.get(chat.personaId);
+                            if (persona) {
+                                // Append the new memory with a newline
+                                let currentMemory = persona.memory || '';
+                                if (currentMemory && !currentMemory.endsWith('\n')) {
+                                    currentMemory += '\n';
+                                }
+                                currentMemory += aiMessage.content + '\n';
+                                
+                                // Update the persona's memory
+                                await db.personas.update(chat.personaId, { memory: currentMemory });
+                                await Alpine.store('personas').loadPersonas();
+                                console.log('Memory updated for persona:', chat.personaId);
+                            }
+                        }
+                        // Don't save memory messages to the messages database
+                        continue;
+                    }
+                    
                     // For voice messages, auto-synthesize voice if enabled
                     if (aiMessage.type === 'voice' && aiMessage.content) {
                         const voiceConfig = Alpine.store('settings').voiceApiConfig;
@@ -2203,12 +2262,13 @@ document.addEventListener('alpine:init', () => {
             this.personas = await db.personas.orderBy('created').reverse().toArray();
         },
         
-        async createPersona(name, avatar, persona) {
+        async createPersona(name, avatar, persona, memory = '') {
             const personaItem = {
                 id: Date.now().toString(),
                 name: name,
                 avatar: avatar,
                 persona: persona,
+                memory: memory,
                 created: Date.now()
             };
             
