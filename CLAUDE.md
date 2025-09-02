@@ -179,3 +179,4 @@ Command content here with $ARGUMENTS placeholder
 ### Personal Commands
 For commands across all projects, use `~/.claude/commands/` directory.
 - 在这个ai聊天应用中,我方用户称为user,对方ai角色称为char
+- 记住图片用法,项目中优先用remix icon.如果我给你发ri-开头的class名,就直接用这个图标
