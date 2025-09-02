@@ -10,7 +10,7 @@
     
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css?v=1.14.1">
+    <link rel="stylesheet" href="styles.css?v=1.14.2">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -93,7 +93,7 @@
                     
                     <!-- Version info -->
                     <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #999; font-size: 10px; text-align: center;">
-                        RuaPhone v1.14.1
+                        RuaPhone v1.14.2
                     </div>
                 </div>
 
@@ -784,7 +784,7 @@
                             box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
                         ">
                             <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">
-                                🚀 RuaPhone v1.14.1
+                                🚀 RuaPhone v1.14.2
                             </div>
                             <div style="font-size: 12px; opacity: 0.9;">
                                 可爱的小手机rua~
@@ -1236,7 +1236,7 @@
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <button class="delete-button" @click="
-                                            if (confirm('确定要删除这个人设吗？')) {
+                                            if (confirm(`确定要删除「${persona.name}」吗？\n\n⚠️ 注意：\n• 将删除所有与该角色的私聊记录\n• 该角色将从所有群聊中移除\n• 此操作不可恢复`)) {
                                                 $store.personas.deletePersona(persona.id);
                                             }
                                         ">
@@ -1784,7 +1784,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=1.14.1"></script>
-    <script src="version-update.js?v=1.14.1"></script>
+    <script src="script.js?v=1.14.2"></script>
+    <script src="version-update.js?v=1.14.2"></script>
 </body>
 </html>

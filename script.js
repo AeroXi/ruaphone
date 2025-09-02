@@ -2133,8 +2133,57 @@ document.addEventListener('alpine:init', () => {
         },
         
         async deletePersona(id) {
-            await db.personas.delete(id);
-            await this.loadPersonas();
+            try {
+                // 获取被删除角色的名称用于反馈
+                const persona = await db.personas.get(id);
+                const personaName = persona ? persona.name : '未知角色';
+                
+                let deletedPrivateChats = 0;
+                let updatedGroupChats = 0;
+                
+                // 1. 删除所有相关的私聊
+                const privateChats = await db.chats.where('personaId').equals(id).toArray();
+                for (const chat of privateChats) {
+                    // 删除聊天的所有消息
+                    await db.messages.where('chatId').equals(chat.id).delete();
+                    // 删除聊天本身
+                    await db.chats.delete(chat.id);
+                    deletedPrivateChats++;
+                }
+                
+                // 2. 从群聊中移除该角色（但保留群聊）
+                const groupChats = await db.chats.where('type').equals('group').toArray();
+                for (const chat of groupChats) {
+                    if (chat.personaIds && chat.personaIds.includes(id)) {
+                        // 从群聊成员列表中移除该角色
+                        const updatedPersonaIds = chat.personaIds.filter(pid => pid !== id);
+                        // 更新群聊的成员列表（即使少于2个成员也保留群聊）
+                        await db.chats.update(chat.id, { personaIds: updatedPersonaIds });
+                        updatedGroupChats++;
+                    }
+                }
+                
+                // 3. 删除角色本身
+                await db.personas.delete(id);
+                
+                // 4. 重新加载数据
+                await this.loadPersonas();
+                await Alpine.store('chat').loadChats();
+                
+                // 5. 显示删除反馈
+                let message = `已删除角色"${personaName}"`;
+                if (deletedPrivateChats > 0) {
+                    message += `\n• 删除了 ${deletedPrivateChats} 个私聊`;
+                }
+                if (updatedGroupChats > 0) {
+                    message += `\n• 从 ${updatedGroupChats} 个群聊中移除`;
+                }
+                alert(message);
+                
+            } catch (error) {
+                console.error('删除角色失败:', error);
+                alert('删除角色失败: ' + error.message);
+            }
         }
     });
 
