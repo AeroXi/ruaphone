@@ -791,7 +791,9 @@ class PromptBuilder {
         let systemPrompt;
         
         if (chatType === 'group') {
-            const membersList = (chatData.members || []).map(m => `- **${m.name}**: ${m.persona}`).join('\n');
+            // Dynamically fetch current members from personas table
+            const members = await Alpine.store('chat').getGroupMembers(chatData);
+            const membersList = members.map(m => `- **${m.name}**: ${m.persona}`).join('\n');
             const myNickname = chatData.myNickname || '我';
             
             systemPrompt = template
@@ -1089,30 +1091,42 @@ document.addEventListener('alpine:init', () => {
         },
 
         async createGroupChat(name, personaIds, personas) {
-            // Create group chat with multiple personas
-            // Convert personas to plain objects to avoid IndexedDB cloning issues
-            const members = personas.map(p => ({
-                id: p.id,
-                name: p.name,
-                persona: p.persona || '',
-                avatar: p.avatar || 'https://via.placeholder.com/40'
-            }));
-            
+            // Create group chat with persona IDs only (no members snapshot)
             const chat = {
                 id: Date.now().toString(),
                 name: name,
                 type: 'group',
                 personaIds: [...personaIds], // Clone array to ensure it's a plain array
-                members: members, // Store plain objects for prompt builder
+                // members array removed - will fetch dynamically from personas table
                 myNickname: Alpine.store('profile').profile.name || '我',
                 created: Date.now(),
                 avatar: 'https://via.placeholder.com/40' // Default group avatar
             };
             
-            // Don't store the original personas array as it may contain non-cloneable objects
             await db.chats.add(chat);
             await this.loadChats();
             return chat.id;
+        },
+        
+        async getGroupMembers(chat) {
+            // Dynamically fetch group members from personas table
+            if (!chat.personaIds || chat.personaIds.length === 0) {
+                return [];
+            }
+            
+            const members = [];
+            for (const personaId of chat.personaIds) {
+                const persona = await db.personas.get(personaId);
+                if (persona) {
+                    members.push({
+                        id: persona.id,
+                        name: persona.name,
+                        persona: persona.persona || '',
+                        avatar: persona.avatar || 'https://via.placeholder.com/40'
+                    });
+                }
+            }
+            return members;
         },
         
         async loadMessages(chatId) {
@@ -2157,7 +2171,7 @@ document.addEventListener('alpine:init', () => {
                     if (chat.personaIds && chat.personaIds.includes(id)) {
                         // 从群聊成员列表中移除该角色
                         const updatedPersonaIds = chat.personaIds.filter(pid => pid !== id);
-                        // 更新群聊的成员列表（即使少于2个成员也保留群聊）
+                        // 只更新personaIds（不需要更新members，因为已改为动态获取）
                         await db.chats.update(chat.id, { personaIds: updatedPersonaIds });
                         updatedGroupChats++;
                     }
