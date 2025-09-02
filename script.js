@@ -2902,6 +2902,33 @@ function phoneApp() {
 function chatInterface() {
     return {
         newMessage: '',
+        hasInitialScroll: false,
+        
+        init() {
+            // Watch for messages changes to scroll to bottom on initial load
+            let lastChatId = null;
+            this.$watch('messages', (newMessages, oldMessages) => {
+                const currentChatId = Alpine.store('app').currentChatId;
+                
+                // Reset flag when switching to a different chat
+                if (currentChatId !== lastChatId) {
+                    this.hasInitialScroll = false;
+                    lastChatId = currentChatId;
+                }
+                
+                // Only auto-scroll to bottom on initial load (when messages go from empty to populated)
+                if (!this.hasInitialScroll && newMessages.length > 0 && (!oldMessages || oldMessages.length === 0)) {
+                    this.$nextTick(() => {
+                        const container = this.$refs.messagesContainer;
+                        if (container) {
+                            // Instantly jump to bottom without animation
+                            container.scrollTop = container.scrollHeight;
+                            this.hasInitialScroll = true;
+                        }
+                    });
+                }
+            });
+        },
         
         get currentChat() {
             const chatId = Alpine.store('app').currentChatId;
