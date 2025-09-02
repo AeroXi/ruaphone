@@ -716,20 +716,22 @@
                         </div>
                         
                         <!-- Main Input Container -->
-                        <div class="input-container">
-                            <input 
-                                type="text" 
-                                x-model="newMessage" 
-                                @keydown.enter="sendMessage()"
-                                placeholder="输入消息..."
-                                class="message-input"
-                            >
+                        <div class="chat-input-wrapper">
+                            <div class="input-container">
+                                <input 
+                                    type="text" 
+                                    x-model="newMessage" 
+                                    @keydown.enter="sendMessage()"
+                                    placeholder="输入消息..."
+                                    class="message-input"
+                                >
+                            </div>
                             <div class="button-group">
                                 <button @click="triggerAIResponse()" class="ai-button" :disabled="!hasUserMessages()">
                                     <i class="ri-chat-ai-line"></i>
                                 </button>
                                 <button @click="sendMessage()" class="send-button" :disabled="!newMessage.trim()">
-                                    发送
+                                    <i class="ri-send-plane-fill"></i>
                                 </button>
                             </div>
                         </div>

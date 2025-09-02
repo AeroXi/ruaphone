@@ -778,8 +778,6 @@ body {
     display: flex;
     gap: 8px;
     padding: 8px 12px;
-    background: #f8f8f8;
-    border-bottom: 1px solid #e0e0e0;
 }
 
 .toolbar-button {
@@ -1028,10 +1026,17 @@ body {
     flex-shrink: 0;
 }
 
-.input-container {
+.chat-input-wrapper {
     display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%;
+}
+
+.input-container {
+    display: flex;
+    align-items: center;
+    flex: 1;
     background: var(--background-light);
     border-radius: 24px;
     padding: 8px 16px;
@@ -1039,14 +1044,13 @@ body {
 }
 
 .message-input {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: calc(100% - 110px);
+    flex: 1;
     border: none;
     background: none;
     outline: none;
     font-size: 16px;
     padding: 8px 0;
+    width: 100%;
 }
 
 .message-input::placeholder {
@@ -1059,22 +1063,23 @@ body {
     display: flex;
     gap: 6px;
     flex-shrink: 0;
+    align-items: center;
 }
 
 .send-button {
     background: var(--primary-color);
     color: white;
     border: none;
-    border-radius: 20px;
-    min-width: 50px;
+    border-radius: 50%;
+    width: 36px;
     height: 36px;
-    padding: 0 12px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-weight: 600;
+    font-size: 16px;
     flex-shrink: 0;
 }
 
@@ -1851,19 +1856,21 @@ body {
         padding: 12px 16px;
     }
     
-    .input-container {
+    .chat-input-wrapper {
         gap: 6px;
+    }
+    
+    .input-container {
         padding: 6px 12px;
     }
     
     .message-input {
-        max-width: calc(100% - 95px);
+        font-size: 15px;
     }
     
     .send-button {
-        min-width: 45px;
+        width: 32px;
         height: 32px;
-        padding: 0 10px;
         font-size: 14px;
     }
     
@@ -1883,21 +1890,22 @@ body {
         padding: 10px 12px;
     }
     
-    .input-container {
+    .chat-input-wrapper {
         gap: 4px;
+    }
+    
+    .input-container {
         padding: 4px 8px;
     }
     
     .message-input {
-        max-width: calc(100% - 80px);
         font-size: 14px;
         padding: 6px 0;
     }
     
     .send-button {
-        min-width: 40px;
+        width: 28px;
         height: 28px;
-        padding: 0 8px;
         font-size: 12px;
     }
     
@@ -1917,21 +1925,22 @@ body {
         padding: 8px 10px;
     }
     
-    .input-container {
+    .chat-input-wrapper {
         gap: 3px;
+    }
+    
+    .input-container {
         padding: 3px 6px;
     }
     
     .message-input {
-        max-width: calc(100% - 75px);
         font-size: 13px;
         padding: 4px 0;
     }
     
     .send-button {
-        min-width: 36px;
+        width: 26px;
         height: 26px;
-        padding: 0 6px;
         font-size: 11px;
     }
     
