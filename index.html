@@ -726,7 +726,7 @@
                             >
                             <div class="button-group">
                                 <button @click="triggerAIResponse()" class="ai-button" :disabled="!hasUserMessages()">
-                                    📳
+                                    <i class="ri-chat-ai-line"></i>
                                 </button>
                                 <button @click="sendMessage()" class="send-button" :disabled="!newMessage.trim()">
                                     发送
