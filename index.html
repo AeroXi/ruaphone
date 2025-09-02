@@ -201,9 +201,22 @@
                                          @mouseleave="handleMouseUp"
                                          @click="handleClick">
                                         <div class="list-item">
-                                            <div class="list-item-avatar-container">
-                                                <img x-show="chat.avatar && chat.avatar !== 'https://via.placeholder.com/40'" 
-                                                     :src="chat.avatar" 
+                                            <div class="list-item-avatar-container"
+                                                 x-data="{
+                                                     getChatAvatar() {
+                                                         // For single chat, get dynamic avatar from persona
+                                                         if (chat.type !== 'group' && chat.personaId) {
+                                                             const persona = $store.personas.personas.find(p => p.id === chat.personaId);
+                                                             if (persona?.avatar) {
+                                                                 return persona.avatar;
+                                                             }
+                                                         }
+                                                         // Fallback to chat avatar or placeholder
+                                                         return chat.avatar || 'https://via.placeholder.com/40';
+                                                     }
+                                                 }">
+                                                <img x-show="getChatAvatar() && getChatAvatar() !== 'https://via.placeholder.com/40'" 
+                                                     :src="getChatAvatar()" 
                                                      :alt="chat.name"
                                                      class="list-item-avatar">
                                                 <div x-show="chat.type === 'group'" class="group-indicator">
