@@ -1373,7 +1373,9 @@
                 </div>
 
                 <!-- Social Feed Page -->
-                <div class="page" :class="{ active: $store.app.currentPage === 'social-feed' }" x-init="$store.app.currentPage === 'social-feed' && $store.socialFeed.loadPosts()">
+                <div class="page" :class="{ active: $store.app.currentPage === 'social-feed' }" 
+                     x-init="$store.app.currentPage === 'social-feed' && $store.socialFeed.loadPosts()"
+                     @page-leave.window="$store.app.currentPage !== 'social-feed' && $store.socialFeed.cleanupObjectUrls()">
                     <div class="header">
                         <button class="header-button" @click="navigateTo('home')">
                             <i class="fas fa-arrow-left"></i>
@@ -1401,8 +1403,8 @@
                                     <div class="post-content" x-show="post.content" x-text="post.content"></div>
                                     
                                     <!-- Post Image -->
-                                    <div class="post-image" x-show="post.image">
-                                        <img :src="post.image" alt="Post image" @click="$dispatch('view-image', { src: post.image })">
+                                    <div class="post-image" x-show="post.imageUrl || post.image">
+                                        <img :src="post.imageUrl || post.image" alt="Post image" @click="$dispatch('view-image', { src: post.imageUrl || post.image })">
                                     </div>
                                     
                                     <!-- Post Actions -->

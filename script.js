@@ -84,6 +84,30 @@ db.version(12).stores({
     console.log('Upgrading database to version 12: Adding social posts...');
 });
 
+// Version 13: Optimize social feed with blob storage for images
+db.version(13).stores({
+    chats: '&id, name, type, personaId, personaIds, created',
+    messages: '&id, chatId, timestamp, role, type, voiceAudio, senderId',
+    apiConfig: '&id',
+    voiceApiConfig: '&id',
+    worldBooks: '&id, name, enabled, created',
+    personas: '&id, name, avatar, persona, memory, created',
+    globalSettings: '&id',
+    userProfile: '&id, avatar, name, gender, age, bio, updated',
+    socialPosts: '&id, userId, timestamp, imageId', // Add imageId reference
+    socialImages: '&id, postId, timestamp' // New table for blob storage
+}).upgrade(async tx => {
+    console.log('Upgrading database to version 13: Optimizing image storage...');
+    // Clear old social posts since we're changing the storage format
+    // and there are no production users yet
+    try {
+        await tx.socialPosts.clear();
+        console.log('Cleared old social posts for new blob storage format');
+    } catch (error) {
+        console.log('No existing social posts to clear');
+    }
+});
+
 // Database upgrade and error handling
 db.open().catch(function(error) {
     console.error('Database failed to open:', error);
@@ -167,6 +191,58 @@ window.compressImage = function(file, maxWidth = 800, maxHeight = 800, quality =
             ctx.drawImage(img, 0, 0, width, height);
             const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
             resolve(compressedDataUrl);
+        };
+        
+        img.src = URL.createObjectURL(file);
+    });
+};
+
+// New Blob-based image compression for better performance
+window.compressImageToBlob = function(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = function() {
+            // Calculate new dimensions
+            let { width, height } = img;
+            
+            if (width > height) {
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width;
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width = (width * maxHeight) / height;
+                    height = maxHeight;
+                }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Draw and compress to Blob
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob(
+                blob => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Failed to compress image'));
+                    }
+                },
+                'image/jpeg',
+                quality
+            );
+            
+            // Clean up
+            URL.revokeObjectURL(img.src);
+        };
+        
+        img.onerror = () => {
+            reject(new Error('Failed to load image'));
         };
         
         img.src = URL.createObjectURL(file);
@@ -1013,6 +1089,13 @@ document.addEventListener('alpine:init', () => {
         
         // Navigation
         navigateTo(page, data = {}) {
+            // Dispatch page-leave event for cleanup
+            if (this.currentPage !== page) {
+                window.dispatchEvent(new CustomEvent('page-leave', { 
+                    detail: { from: this.currentPage, to: page } 
+                }));
+            }
+            
             this.currentPage = page;
             if (data.chatId) {
                 this.currentChatId = data.chatId;
@@ -2400,16 +2483,22 @@ document.addEventListener('alpine:init', () => {
         showCreateModal: false,
         newPost: {
             content: '',
-            image: ''
+            image: null,  // Change to null for blob
+            imageBlob: null, // Store the actual blob temporarily
+            imagePreviewUrl: null // Store preview URL for display
         },
+        objectUrls: [], // Track object URLs for cleanup
         
         async loadPosts() {
             try {
+                // Clean up old object URLs before loading new ones
+                this.cleanupObjectUrls();
+                
                 this.posts = await db.socialPosts.toArray();
                 // Sort by timestamp descending (newest first)
                 this.posts.sort((a, b) => b.timestamp - a.timestamp);
                 
-                // Load user info for each post
+                // Load user info and images for each post
                 for (const post of this.posts) {
                     if (post.userId === 'user') {
                         const profile = Alpine.store('profile').profile;
@@ -2424,6 +2513,19 @@ document.addEventListener('alpine:init', () => {
                         }
                     }
                     
+                    // Load image blob and create object URL
+                    if (post.imageId) {
+                        const imageRecord = await db.socialImages.get(post.imageId);
+                        if (imageRecord && imageRecord.blob) {
+                            const url = URL.createObjectURL(imageRecord.blob);
+                            post.imageUrl = url;
+                            this.objectUrls.push(url); // Track for cleanup
+                        }
+                    } else if (post.image) {
+                        // Backward compatibility with old base64 images
+                        post.imageUrl = post.image;
+                    }
+                    
                     // Initialize likes and comments if not present
                     if (!post.likes) post.likes = [];
                     if (!post.comments) post.comments = [];
@@ -2433,16 +2535,30 @@ document.addEventListener('alpine:init', () => {
             }
         },
         
-        async createPost(content, image) {
-            if (!content.trim() && !image) return false;
+        async createPost(content, imageBlob) {
+            if (!content.trim() && !imageBlob) return false;
             
             try {
+                const postId = 'post_' + Date.now();
+                let imageId = null;
+                
+                // Store image blob if present
+                if (imageBlob) {
+                    imageId = 'img_' + Date.now();
+                    await db.socialImages.add({
+                        id: imageId,
+                        postId: postId,
+                        blob: imageBlob,
+                        timestamp: Date.now()
+                    });
+                }
+                
                 const post = {
-                    id: 'post_' + Date.now(),
+                    id: postId,
                     userId: 'user', // Currently only user can post
                     timestamp: Date.now(),
                     content: content.trim(),
-                    image: image || '',
+                    imageId: imageId, // Store reference to image
                     likes: [],
                     comments: []
                 };
@@ -2504,18 +2620,47 @@ document.addEventListener('alpine:init', () => {
         
         openCreateModal() {
             this.showCreateModal = true;
-            this.newPost = { content: '', image: '' };
+            this.newPost = { 
+                content: '', 
+                image: null,
+                imageBlob: null,
+                imagePreviewUrl: null 
+            };
         },
         
         closeCreateModal() {
+            // Clean up preview URL
+            if (this.newPost.imagePreviewUrl) {
+                URL.revokeObjectURL(this.newPost.imagePreviewUrl);
+            }
             this.showCreateModal = false;
-            this.newPost = { content: '', image: '' };
+            this.newPost = { 
+                content: '', 
+                image: null,
+                imageBlob: null,
+                imagePreviewUrl: null 
+            };
         },
         
         async handleImageUpload(file) {
             try {
-                const compressedImage = await window.compressImage(file, { maxWidth: 800, maxHeight: 800 });
-                this.newPost.image = compressedImage;
+                // Check file size (max 10MB for blob storage)
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('图片文件过大，请选择小于10MB的图片');
+                    return false;
+                }
+                
+                // Compress image to blob
+                const compressedBlob = await window.compressImageToBlob(file, 800, 800, 0.8);
+                this.newPost.imageBlob = compressedBlob;
+                
+                // Create preview URL
+                if (this.newPost.imagePreviewUrl) {
+                    URL.revokeObjectURL(this.newPost.imagePreviewUrl);
+                }
+                this.newPost.imagePreviewUrl = URL.createObjectURL(compressedBlob);
+                this.newPost.image = this.newPost.imagePreviewUrl; // For display compatibility
+                
                 return true;
             } catch (error) {
                 console.error('Failed to upload image:', error);
@@ -2525,21 +2670,34 @@ document.addEventListener('alpine:init', () => {
         },
         
         removeImage() {
-            this.newPost.image = '';
+            if (this.newPost.imagePreviewUrl) {
+                URL.revokeObjectURL(this.newPost.imagePreviewUrl);
+            }
+            this.newPost.image = null;
+            this.newPost.imageBlob = null;
+            this.newPost.imagePreviewUrl = null;
         },
         
         async publishPost() {
-            if (!this.newPost.content.trim() && !this.newPost.image) {
+            if (!this.newPost.content.trim() && !this.newPost.imageBlob) {
                 alert('请输入文字或添加图片');
                 return;
             }
             
-            const success = await this.createPost(this.newPost.content, this.newPost.image);
+            const success = await this.createPost(this.newPost.content, this.newPost.imageBlob);
             if (success) {
                 this.closeCreateModal();
             } else {
                 alert('发布失败，请重试');
             }
+        },
+        
+        // Clean up object URLs to prevent memory leaks
+        cleanupObjectUrls() {
+            for (const url of this.objectUrls) {
+                URL.revokeObjectURL(url);
+            }
+            this.objectUrls = [];
         },
         
         // Comment functionality
