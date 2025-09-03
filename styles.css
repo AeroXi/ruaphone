@@ -777,17 +777,22 @@ body {
 .input-toolbar {
     display: flex;
     gap: 8px;
-    padding: 8px 12px;
+    padding: 4px 12px 8px 12px;
 }
 
 .toolbar-button {
-    padding: 8px 12px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
     background: white;
     border: 1px solid #ddd;
-    border-radius: 6px;
+    border-radius: 50%;
     font-size: 16px;
     cursor: pointer;
     transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .toolbar-button:hover {
@@ -1098,14 +1103,14 @@ body {
     background: #f0f0f0;
     border: none;
     border-radius: 50%;
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-size: 14px;
+    font-size: 16px;
     flex-shrink: 0;
 }
 
@@ -1875,9 +1880,9 @@ body {
     }
     
     .ai-button {
-        width: 30px;
-        height: 30px;
-        font-size: 13px;
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
     }
     
     .button-group {
@@ -1910,8 +1915,8 @@ body {
     }
     
     .ai-button {
-        width: 26px;
-        height: 26px;
+        width: 28px;
+        height: 28px;
         font-size: 12px;
     }
     
@@ -1945,8 +1950,8 @@ body {
     }
     
     .ai-button {
-        width: 24px;
-        height: 24px;
+        width: 26px;
+        height: 26px;
         font-size: 11px;
     }
     
