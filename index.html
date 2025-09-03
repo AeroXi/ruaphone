@@ -47,9 +47,9 @@
                             <div class="app-icon-label">聊天</div>
                         </div>
 
-                        <div class="app-icon" @click="navigateTo('moments')" data-testid="moments-icon">
+                        <div class="app-icon" @click="navigateTo('social-feed')">
                             <div class="app-icon-image">
-                                <i class="fas fa-heart"></i>
+                                <i class="ri-user-heart-line"></i>
                             </div>
                             <div class="app-icon-label">朋友圈</div>
                         </div>
@@ -1372,145 +1372,118 @@
                     </div>
                 </div>
 
-                <!-- Moments Page -->
-                <div class="page moments-page" :class="{ active: $store.app.currentPage === 'moments' }" x-data="momentsInterface()">
+                <!-- Social Feed Page -->
+                <div class="page" :class="{ active: $store.app.currentPage === 'social-feed' }" x-init="$store.app.currentPage === 'social-feed' && $store.socialFeed.loadPosts()">
                     <div class="header">
                         <button class="header-button" @click="navigateTo('home')">
                             <i class="fas fa-arrow-left"></i>
                         </button>
                         <div class="header-title">朋友圈</div>
-                        <button class="header-button" @click="showCreateMoment()">
-                            <i class="fas fa-camera"></i>
+                        <button class="header-button" @click="$store.socialFeed.openCreateModal()">
+                            <i class="ri-camera-line"></i>
                         </button>
                     </div>
-                    
-                    <!-- Moments Feed -->
-                    <div class="moments-feed" x-ref="momentsContainer">
-                        <template x-for="moment in $store.moments.moments" :key="moment.id">
-                            <div class="moment-item">
-                                <!-- User Info -->
-                                <div class="moment-header">
-                                    <div class="moment-avatar" x-text="moment.userAvatar"></div>
-                                    <div class="moment-user-info">
-                                        <div class="moment-username" x-text="moment.userName"></div>
-                                        <div class="moment-time" x-text="$store.moments.formatTime(moment.timestamp)"></div>
-                                        <div x-show="moment.location" class="moment-location" x-text="moment.location"></div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Content -->
-                                <div class="moment-content">
-                                    <div x-show="moment.content" class="moment-text" x-text="moment.content"></div>
-                                    
-                                    <!-- Images Grid -->
-                                    <div x-show="moment.images && moment.images.length > 0" class="moment-images" :class="'images-' + moment.images.length">
-                                        <template x-for="(image, index) in moment.images" :key="index">
-                                            <div class="moment-image">
-                                                <img :src="image" :alt="'图片' + (index + 1)" @click="showImage(image)">
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
-                                
-                                <!-- Actions -->
-                                <div class="moment-actions">
-                                    <button class="action-button" @click="$store.moments.toggleLike(moment.id)" 
-                                            :class="{ liked: $store.moments.isLikedByUser(moment.id) }">
-                                        <i class="fas fa-heart"></i>
-                                    </button>
-                                    <button class="action-button" @click="showCommentInput(moment.id)">
-                                        <i class="fas fa-comment"></i>
-                                    </button>
-                                </div>
-                                
-                                <!-- Likes and Comments Info -->
-                                <div class="moment-stats">
-                                    <div x-show="$store.moments.getMomentsLikes(moment.id).length > 0" class="likes-info">
-                                        <i class="fas fa-heart"></i>
-                                        <span x-text="$store.moments.getMomentsLikes(moment.id).map(l => l.userName).join(', ')"></span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Comments -->
-                                <div x-show="$store.moments.getMomentsComments(moment.id).length > 0" class="moment-comments">
-                                    <template x-for="comment in $store.moments.getMomentsComments(moment.id)" :key="comment.id">
-                                        <div class="comment-item">
-                                            <span class="comment-user" x-text="comment.userName"></span>
-                                            <span x-show="comment.replyTo" class="comment-reply">回复<span x-text="comment.replyTo"></span></span>
-                                            <span class="comment-content" x-text="comment.content"></span>
+                    <div class="content" style="padding: 0; background: #f0f0f0;">
+                        <!-- Posts List -->
+                        <div class="social-feed-list" x-show="$store.socialFeed.posts.length > 0">
+                            <template x-for="post in $store.socialFeed.posts" :key="post.id">
+                                <div class="social-post">
+                                    <!-- Post Header -->
+                                    <div class="post-header">
+                                        <img :src="post.userAvatar" class="post-avatar" alt="Avatar">
+                                        <div class="post-info">
+                                            <div class="post-author" x-text="post.userName"></div>
+                                            <div class="post-time" x-text="$store.socialFeed.formatTimestamp(post.timestamp)"></div>
                                         </div>
-                                    </template>
-                                </div>
-                                
-                                <!-- Comment Input -->
-                                <div x-show="activeCommentInput === moment.id" class="comment-input-container">
-                                    <input type="text" x-model="commentText" 
-                                           :placeholder="'评论' + moment.userName + '...'"
-                                           @keydown.enter="submitComment(moment.id)"
-                                           class="comment-input">
-                                    <button @click="submitComment(moment.id)" class="comment-submit">发送</button>
-                                </div>
-                            </div>
-                        </template>
-                        
-                        <!-- Empty State -->
-                        <div x-show="$store.moments.moments.length === 0" class="empty-state">
-                            <i class="fas fa-heart-broken"></i>
-                            <p>还没有朋友圈动态</p>
-                            <button class="button" @click="showCreateMoment()">发布第一条朋友圈</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Create Moment Modal -->
-                    <div x-show="$store.moments.showCreateModal" class="modal-overlay" @click="hideCreateMoment()">
-                        <div class="modal" @click.stop>
-                            <div class="modal-header">
-                                <button @click="hideCreateMoment()">取消</button>
-                                <span>发朋友圈</span>
-                                <button @click="publishMoment()" :disabled="!newMomentContent.trim()">发表</button>
-                            </div>
-                            <div class="modal-content">
-                                <textarea x-model="newMomentContent" 
-                                         placeholder="这一刻的想法..." 
-                                         class="moment-textarea"
-                                         rows="6"></textarea>
-                                
-                                <!-- Local Image Upload -->
-                                <div class="image-input-section">
-                                    <label>添加图片 (可选)</label>
-                                    <div>
-                                        <input type="file" 
-                                               accept="image/*" 
-                                               @change="handleImageUpload($event)"
-                                               class="image-file-input"
-                                               style="display: none;"
-                                               x-ref="imageInput">
-                                        <button @click="$refs.imageInput.click()" class="upload-button">
-                                            <i class="fas fa-camera"></i> 选择图片
+                                    </div>
+                                    
+                                    <!-- Post Content -->
+                                    <div class="post-content" x-show="post.content" x-text="post.content"></div>
+                                    
+                                    <!-- Post Image -->
+                                    <div class="post-image" x-show="post.image">
+                                        <img :src="post.image" alt="Post image" @click="$dispatch('view-image', { src: post.image })">
+                                    </div>
+                                    
+                                    <!-- Post Actions -->
+                                    <div class="post-actions">
+                                        <button class="action-btn" @click="$store.socialFeed.likePost(post.id)" 
+                                                :class="{ liked: $store.socialFeed.isLikedByUser(post) }">
+                                            <i :class="$store.socialFeed.isLikedByUser(post) ? 'ri-heart-fill' : 'ri-heart-line'"></i>
+                                            <span x-show="post.likes.length > 0" x-text="post.likes.length"></span>
+                                        </button>
+                                        <button class="action-btn" disabled>
+                                            <i class="ri-chat-1-line"></i>
+                                            <span x-show="post.comments && post.comments.length > 0" x-text="post.comments.length"></span>
                                         </button>
                                     </div>
                                 </div>
-                                
-                                <!-- Preview Images -->
-                                <div x-show="newMomentImages.length > 0" class="preview-images">
-                                    <template x-for="(image, index) in newMomentImages" :key="index">
-                                        <div class="preview-image">
-                                            <img :src="image" :alt="'预览' + (index + 1)">
-                                            <button @click="removeImage(index)" class="remove-image">×</button>
-                                        </div>
-                                    </template>
+                            </template>
+                        </div>
+                        
+                        <!-- Empty State -->
+                        <div x-show="$store.socialFeed.posts.length === 0" class="empty-social-feed">
+                            <i class="ri-camera-line" style="font-size: 48px; color: #ccc; margin-bottom: 16px;"></i>
+                            <p style="color: #999; margin-bottom: 20px;">还没有朋友圈内容</p>
+                            <button class="button" @click="$store.socialFeed.openCreateModal()">
+                                发布第一条朋友圈
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Create Post Modal -->
+                    <div class="modal" :class="{ active: $store.socialFeed.showCreateModal }">
+                        <div class="modal-overlay" @click="$store.socialFeed.closeCreateModal()"></div>
+                        <div class="modal-content create-post-modal">
+                            <div class="modal-header">
+                                <h3>发布朋友圈</h3>
+                                <button class="close-btn" @click="$store.socialFeed.closeCreateModal()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <!-- Text Input -->
+                                <div class="form-group">
+                                    <textarea 
+                                        class="form-input post-textarea" 
+                                        x-model="$store.socialFeed.newPost.content"
+                                        placeholder="分享你的想法..."
+                                        rows="4">
+                                    </textarea>
                                 </div>
                                 
-                                <!-- Location Input -->
-                                <div class="location-input-section">
-                                    <input type="text" x-model="newMomentLocation" 
-                                           placeholder="所在位置 (可选)..." 
-                                           class="location-input">
+                                <!-- Image Preview -->
+                                <div class="image-preview" x-show="$store.socialFeed.newPost.image">
+                                    <img :src="$store.socialFeed.newPost.image" alt="Preview">
+                                    <button class="remove-image-btn" @click="$store.socialFeed.removeImage()">
+                                        <i class="fas fa-times"></i>
+                                    </button>
                                 </div>
+                                
+                                <!-- Add Image Button -->
+                                <div class="form-group" x-show="!$store.socialFeed.newPost.image">
+                                    <label class="image-upload-btn">
+                                        <i class="ri-image-add-line"></i>
+                                        添加图片
+                                        <input type="file" 
+                                               accept="image/*" 
+                                               style="display: none;"
+                                               @change="$event.target.files[0] && $store.socialFeed.handleImageUpload($event.target.files[0])">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="button secondary" @click="$store.socialFeed.closeCreateModal()">取消</button>
+                                <button class="button primary" 
+                                        @click="$store.socialFeed.publishPost()"
+                                        :disabled="!$store.socialFeed.newPost.content.trim() && !$store.socialFeed.newPost.image">
+                                    发布
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
+
             </div>
         </div>
 

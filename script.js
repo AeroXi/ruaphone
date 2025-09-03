@@ -9,9 +9,6 @@ db.version(7).stores({
     worldBooks: '&id, name, enabled, created',
     personas: '&id, name, avatar, persona, created',
     globalSettings: '&id',
-    moments: '&id, userId, userName, timestamp, content',
-    momentsComments: '&id, momentId, userId, userName, timestamp',
-    momentsLikes: '&id, momentId, userId, userName, timestamp',
     userProfile: '&id, avatar, name, gender, age, bio, updated'
 });
 
@@ -23,9 +20,6 @@ db.version(8).stores({
     worldBooks: '&id, name, enabled, created',
     personas: '&id, name, avatar, persona, created',
     globalSettings: '&id',
-    moments: '&id, userId, userName, timestamp, content',
-    momentsComments: '&id, momentId, userId, userName, timestamp',
-    momentsLikes: '&id, momentId, userId, userName, timestamp',
     userProfile: '&id, avatar, name, gender, age, bio, updated'
 }).upgrade(tx => {
     // Migrate existing messages to have type: 'text'
@@ -47,9 +41,6 @@ db.version(9).stores({
     worldBooks: '&id, name, enabled, created',
     personas: '&id, name, avatar, persona, created',
     globalSettings: '&id',
-    moments: '&id, userId, userName, timestamp, content',
-    momentsComments: '&id, momentId, userId, userName, timestamp',
-    momentsLikes: '&id, momentId, userId, userName, timestamp',
     userProfile: '&id, avatar, name, gender, age, bio, updated'
 });
 
@@ -62,9 +53,6 @@ db.version(10).stores({
     worldBooks: '&id, name, enabled, created',
     personas: '&id, name, avatar, persona, created',
     globalSettings: '&id',
-    moments: '&id, userId, userName, timestamp, content',
-    momentsComments: '&id, momentId, userId, userName, timestamp',
-    momentsLikes: '&id, momentId, userId, userName, timestamp',
     userProfile: '&id, avatar, name, gender, age, bio, updated'
 });
 
@@ -77,10 +65,23 @@ db.version(11).stores({
     worldBooks: '&id, name, enabled, created',
     personas: '&id, name, avatar, persona, memory, created', // Add memory field
     globalSettings: '&id',
-    moments: '&id, userId, userName, timestamp, content',
-    momentsComments: '&id, momentId, userId, userName, timestamp',
-    momentsLikes: '&id, momentId, userId, userName, timestamp',
     userProfile: '&id, avatar, name, gender, age, bio, updated'
+});
+
+// Version 12: Add social feed posts
+db.version(12).stores({
+    chats: '&id, name, type, personaId, personaIds, created',
+    messages: '&id, chatId, timestamp, role, type, voiceAudio, senderId',
+    apiConfig: '&id',
+    voiceApiConfig: '&id',
+    worldBooks: '&id, name, enabled, created',
+    personas: '&id, name, avatar, persona, memory, created',
+    globalSettings: '&id',
+    userProfile: '&id, avatar, name, gender, age, bio, updated',
+    socialPosts: '&id, userId, timestamp' // New table for social posts
+}).upgrade(tx => {
+    // Initialize likes and comments arrays for new posts
+    console.log('Upgrading database to version 12: Adding social posts...');
 });
 
 // Database upgrade and error handling
@@ -499,7 +500,7 @@ async function importAllData(importData = null, showFileInput = true) {
                 await Alpine.store('worldBook').loadBooks();
                 await Alpine.store('personas').loadPersonas();
                 await Alpine.store('profile').loadProfile();
-                await Alpine.store('moments').loadMoments();
+                await Alpine.store('socialFeed').loadPosts();
                 
                 console.log('All stores reloaded after import');
                 
@@ -2394,6 +2395,154 @@ document.addEventListener('alpine:init', () => {
         }
     });
 
+    Alpine.store('socialFeed', {
+        posts: [],
+        showCreateModal: false,
+        newPost: {
+            content: '',
+            image: ''
+        },
+        
+        async loadPosts() {
+            try {
+                this.posts = await db.socialPosts.toArray();
+                // Sort by timestamp descending (newest first)
+                this.posts.sort((a, b) => b.timestamp - a.timestamp);
+                
+                // Load user info for each post
+                for (const post of this.posts) {
+                    if (post.userId === 'user') {
+                        const profile = Alpine.store('profile').profile;
+                        post.userAvatar = profile.avatar || 'https://via.placeholder.com/40';
+                        post.userName = profile.name || '我';
+                    } else {
+                        // For persona posts (future feature)
+                        const persona = await db.personas.get(post.userId);
+                        if (persona) {
+                            post.userAvatar = persona.avatar;
+                            post.userName = persona.name;
+                        }
+                    }
+                    
+                    // Initialize likes and comments if not present
+                    if (!post.likes) post.likes = [];
+                    if (!post.comments) post.comments = [];
+                }
+            } catch (error) {
+                console.error('Failed to load posts:', error);
+            }
+        },
+        
+        async createPost(content, image) {
+            if (!content.trim() && !image) return false;
+            
+            try {
+                const post = {
+                    id: 'post_' + Date.now(),
+                    userId: 'user', // Currently only user can post
+                    timestamp: Date.now(),
+                    content: content.trim(),
+                    image: image || '',
+                    likes: [],
+                    comments: []
+                };
+                
+                await db.socialPosts.add(post);
+                await this.loadPosts();
+                return true;
+            } catch (error) {
+                console.error('Failed to create post:', error);
+                return false;
+            }
+        },
+        
+        async likePost(postId) {
+            try {
+                const post = await db.socialPosts.get(postId);
+                if (!post) return;
+                
+                if (!post.likes) post.likes = [];
+                
+                const userId = 'user'; // Current user
+                const likeIndex = post.likes.indexOf(userId);
+                
+                if (likeIndex === -1) {
+                    // Add like
+                    post.likes.push(userId);
+                } else {
+                    // Remove like
+                    post.likes.splice(likeIndex, 1);
+                }
+                
+                await db.socialPosts.put(post);
+                await this.loadPosts();
+            } catch (error) {
+                console.error('Failed to like post:', error);
+            }
+        },
+        
+        isLikedByUser(post) {
+            return post.likes && post.likes.includes('user');
+        },
+        
+        formatTimestamp(timestamp) {
+            const now = Date.now();
+            const diff = now - timestamp;
+            
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return '刚刚';
+            if (minutes < 60) return `${minutes}分钟前`;
+            if (hours < 24) return `${hours}小时前`;
+            if (days < 30) return `${days}天前`;
+            
+            const date = new Date(timestamp);
+            return date.toLocaleDateString('zh-CN');
+        },
+        
+        openCreateModal() {
+            this.showCreateModal = true;
+            this.newPost = { content: '', image: '' };
+        },
+        
+        closeCreateModal() {
+            this.showCreateModal = false;
+            this.newPost = { content: '', image: '' };
+        },
+        
+        async handleImageUpload(file) {
+            try {
+                const compressedImage = await window.compressImage(file, { maxWidth: 800, maxHeight: 800 });
+                this.newPost.image = compressedImage;
+                return true;
+            } catch (error) {
+                console.error('Failed to upload image:', error);
+                alert('图片上传失败: ' + error.message);
+                return false;
+            }
+        },
+        
+        removeImage() {
+            this.newPost.image = '';
+        },
+        
+        async publishPost() {
+            if (!this.newPost.content.trim() && !this.newPost.image) {
+                alert('请输入文字或添加图片');
+                return;
+            }
+            
+            const success = await this.createPost(this.newPost.content, this.newPost.image);
+            if (success) {
+                this.closeCreateModal();
+            } else {
+                alert('发布失败，请重试');
+            }
+        }
+    });
+
     Alpine.store('messageTooltip', {
         show: false,
         x: 0,
@@ -2564,120 +2713,6 @@ document.addEventListener('alpine:init', () => {
         }
     });
 
-    Alpine.store('moments', {
-        moments: [],
-        comments: [],
-        likes: [],
-        showCreateModal: false,
-        
-        async loadMoments() {
-            const rawMoments = await db.moments.orderBy('timestamp').reverse().toArray();
-            // 反序列化图片数组
-            this.moments = rawMoments.map(moment => ({
-                ...moment,
-                images: moment.images ? JSON.parse(moment.images) : []
-            }));
-            await this.loadCommentsAndLikes();
-        },
-        
-        async loadCommentsAndLikes() {
-            this.comments = await db.momentsComments.orderBy('timestamp').toArray();
-            this.likes = await db.momentsLikes.orderBy('timestamp').toArray();
-        },
-        
-        async createMoment(content, images = [], location = '') {
-            try {
-                console.log('Creating moment with content:', content);
-                const moment = {
-                    id: Date.now().toString(),
-                    userId: 'user',
-                    userName: '我',
-                    userAvatar: '👤',
-                    content: content,
-                    images: JSON.stringify(images), // 序列化数组为字符串
-                    location: location,
-                    timestamp: Date.now()
-                };
-                
-                console.log('Moment object:', moment);
-                console.log('Database moments table:', db.moments);
-                
-                await db.moments.add(moment);
-                console.log('Moment added to database');
-                
-                await this.loadMoments();
-                console.log('Moments reloaded, total count:', this.moments.length);
-                
-                return moment.id;
-            } catch (error) {
-                console.error('Error in createMoment:', error);
-                throw error;
-            }
-        },
-        
-        async addComment(momentId, content, replyTo = null) {
-            const comment = {
-                id: Date.now().toString(),
-                momentId: momentId,
-                userId: 'user',
-                userName: '我',
-                content: content,
-                replyTo: replyTo,
-                timestamp: Date.now()
-            };
-            
-            await db.momentsComments.add(comment);
-            await this.loadCommentsAndLikes();
-            return comment.id;
-        },
-        
-        async toggleLike(momentId) {
-            const existingLike = this.likes.find(l => l.momentId === momentId && l.userId === 'user');
-            
-            if (existingLike) {
-                await db.momentsLikes.delete(existingLike.id);
-            } else {
-                const like = {
-                    id: Date.now().toString(),
-                    momentId: momentId,
-                    userId: 'user',
-                    userName: '我',
-                    timestamp: Date.now()
-                };
-                await db.momentsLikes.add(like);
-            }
-            
-            await this.loadCommentsAndLikes();
-        },
-        
-        getMomentsComments(momentId) {
-            return this.comments.filter(c => c.momentId === momentId);
-        },
-        
-        getMomentsLikes(momentId) {
-            return this.likes.filter(l => l.momentId === momentId);
-        },
-        
-        isLikedByUser(momentId) {
-            return this.likes.some(l => l.momentId === momentId && l.userId === 'user');
-        },
-        
-        formatTime(timestamp) {
-            const now = Date.now();
-            const diff = now - timestamp;
-            const minutes = Math.floor(diff / 60000);
-            const hours = Math.floor(diff / 3600000);
-            const days = Math.floor(diff / 86400000);
-            
-            if (minutes < 1) return '刚刚';
-            if (minutes < 60) return `${minutes}分钟前`;
-            if (hours < 24) return `${hours}小时前`;
-            if (days < 7) return `${days}天前`;
-            
-            const date = new Date(timestamp);
-            return `${date.getMonth() + 1}月${date.getDate()}日`;
-        }
-    });
 });
 
 // Alpine.js Main App Component
@@ -2725,7 +2760,7 @@ function phoneApp() {
                 await Alpine.store('worldBook').loadBooks();
                 await Alpine.store('personas').loadPersonas();
                 await Alpine.store('profile').loadProfile();
-                await Alpine.store('moments').loadMoments();
+                await Alpine.store('socialFeed').loadPosts();
                 
                 // Auto-fetch models for all APIs after loading config
                 setTimeout(() => {
@@ -3153,106 +3188,6 @@ function chatInterface() {
     }
 }
 
-// Moments Interface Component
-function momentsInterface() {
-    return {
-        activeCommentInput: null,
-        commentText: '',
-        newMomentContent: '',
-        newMomentImages: [],
-        newMomentLocation: '',
-        
-        showCreateMoment() {
-            Alpine.store('moments').showCreateModal = true;
-            this.resetCreateForm();
-        },
-        
-        hideCreateMoment() {
-            Alpine.store('moments').showCreateModal = false;
-            this.resetCreateForm();
-        },
-        
-        resetCreateForm() {
-            this.newMomentContent = '';
-            this.newMomentImages = [];
-            this.newMomentLocation = '';
-        },
-        
-        async handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            if (this.newMomentImages.length >= 9) {
-                alert('最多只能添加9张图片');
-                return;
-            }
-            
-            try {
-                const base64 = await window.fileToBase64(file);
-                this.newMomentImages.push(base64);
-                // Clear the input for next selection
-                event.target.value = '';
-            } catch (error) {
-                alert(error.message);
-            }
-        },
-        
-        removeImage(index) {
-            this.newMomentImages.splice(index, 1);
-        },
-        
-        async publishMoment() {
-            if (!this.newMomentContent.trim()) {
-                console.log('No content to publish');
-                return;
-            }
-            
-            try {
-                console.log('Publishing moment:', this.newMomentContent.trim());
-                console.log('Images:', this.newMomentImages);
-                console.log('Location:', this.newMomentLocation.trim());
-                
-                await Alpine.store('moments').createMoment(
-                    this.newMomentContent.trim(),
-                    this.newMomentImages,
-                    this.newMomentLocation.trim()
-                );
-                
-                console.log('Moment published successfully');
-                this.hideCreateMoment();
-                
-                // Scroll to top to show new moment
-                this.$nextTick(() => {
-                    const container = this.$refs.momentsContainer;
-                    if (container) {
-                        container.scrollTop = 0;
-                    }
-                });
-            } catch (error) {
-                console.error('Failed to publish moment:', error);
-                alert('发布失败，请重试');
-            }
-        },
-        
-        showCommentInput(momentId) {
-            this.activeCommentInput = this.activeCommentInput === momentId ? null : momentId;
-            this.commentText = '';
-        },
-        
-        async submitComment(momentId) {
-            if (!this.commentText.trim()) return;
-            
-            await Alpine.store('moments').addComment(momentId, this.commentText.trim());
-            this.commentText = '';
-            this.activeCommentInput = null;
-        },
-        
-        showImage(imageUrl) {
-            // 简单的图片查看功能
-            window.open(imageUrl, '_blank');
-        }
-    }
-}
 
 // Register Service Worker for PWA functionality
 if ('serviceWorker' in navigator) {
