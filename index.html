@@ -1412,10 +1412,26 @@
                                             <i :class="$store.socialFeed.isLikedByUser(post) ? 'ri-heart-fill' : 'ri-heart-line'"></i>
                                             <span x-show="post.likes.length > 0" x-text="post.likes.length"></span>
                                         </button>
-                                        <button class="action-btn" disabled>
+                                        <button class="action-btn" @click="$store.socialFeed.openCommentModal(post.id)">
                                             <i class="ri-chat-1-line"></i>
                                             <span x-show="post.comments && post.comments.length > 0" x-text="post.comments.length"></span>
                                         </button>
+                                    </div>
+                                    
+                                    <!-- Comments Section -->
+                                    <div class="comments-section" x-show="post.comments && post.comments.length > 0">
+                                        <template x-for="comment in post.comments" :key="comment.id">
+                                            <div class="comment-item">
+                                                <img :src="comment.userAvatar" class="comment-avatar" alt="Avatar">
+                                                <div class="comment-content">
+                                                    <div class="comment-header">
+                                                        <span class="comment-author" x-text="comment.userName"></span>
+                                                        <span class="comment-time" x-text="$store.socialFeed.formatTimestamp(comment.timestamp)"></span>
+                                                    </div>
+                                                    <div class="comment-text" x-text="comment.content"></div>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
                             </template>
@@ -1478,6 +1494,37 @@
                                         @click="$store.socialFeed.publishPost()"
                                         :disabled="!$store.socialFeed.newPost.content.trim() && !$store.socialFeed.newPost.image">
                                     发布
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Comment Modal -->
+                    <div class="modal" :class="{ active: $store.socialFeed.showCommentModal }">
+                        <div class="modal-overlay" @click="$store.socialFeed.closeCommentModal()"></div>
+                        <div class="modal-content comment-modal">
+                            <div class="modal-header">
+                                <h3>评论</h3>
+                                <button class="close-btn" @click="$store.socialFeed.closeCommentModal()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-group">
+                                    <textarea 
+                                        class="form-input comment-textarea" 
+                                        x-model="$store.socialFeed.commentInput"
+                                        placeholder="写下你的评论..."
+                                        rows="3">
+                                    </textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="button secondary" @click="$store.socialFeed.closeCommentModal()">取消</button>
+                                <button class="button primary" 
+                                        @click="$store.socialFeed.submitComment()"
+                                        :disabled="!$store.socialFeed.commentInput.trim()">
+                                    发送
                                 </button>
                             </div>
                         </div>

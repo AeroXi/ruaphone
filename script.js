@@ -2540,6 +2540,78 @@ document.addEventListener('alpine:init', () => {
             } else {
                 alert('发布失败，请重试');
             }
+        },
+        
+        // Comment functionality
+        activeCommentPostId: null,
+        commentInput: '',
+        showCommentModal: false,
+        
+        openCommentModal(postId) {
+            this.activeCommentPostId = postId;
+            this.commentInput = '';
+            this.showCommentModal = true;
+        },
+        
+        closeCommentModal() {
+            this.showCommentModal = false;
+            this.activeCommentPostId = null;
+            this.commentInput = '';
+        },
+        
+        async addComment(postId, content) {
+            if (!content.trim()) return false;
+            
+            try {
+                const post = await db.socialPosts.get(postId);
+                if (!post) return false;
+                
+                if (!post.comments) post.comments = [];
+                
+                const profile = Alpine.store('profile').profile;
+                const comment = {
+                    id: 'comment_' + Date.now(),
+                    userId: 'user',
+                    userName: profile.name || '我',
+                    userAvatar: profile.avatar || 'https://via.placeholder.com/40',
+                    content: content.trim(),
+                    timestamp: Date.now()
+                };
+                
+                post.comments.push(comment);
+                await db.socialPosts.put(post);
+                await this.loadPosts();
+                return true;
+            } catch (error) {
+                console.error('Failed to add comment:', error);
+                return false;
+            }
+        },
+        
+        async submitComment() {
+            if (!this.commentInput.trim() || !this.activeCommentPostId) {
+                return;
+            }
+            
+            const success = await this.addComment(this.activeCommentPostId, this.commentInput);
+            if (success) {
+                this.closeCommentModal();
+            } else {
+                alert('评论发布失败，请重试');
+            }
+        },
+        
+        async deleteComment(postId, commentId) {
+            try {
+                const post = await db.socialPosts.get(postId);
+                if (!post || !post.comments) return;
+                
+                post.comments = post.comments.filter(comment => comment.id !== commentId);
+                await db.socialPosts.put(post);
+                await this.loadPosts();
+            } catch (error) {
+                console.error('Failed to delete comment:', error);
+            }
         }
     });
 
