@@ -2879,20 +2879,102 @@ document.addEventListener('alpine:init', () => {
             const chatStore = Alpine.store('chat');
             
             try {
-                // Delete from database
-                await db.messages.delete(messageId);
-                console.log('✅ Message deleted from database');
+                // Get the messages container
+                const container = document.querySelector('.chat-messages');
+                let scrollPosition = 0;
+                let viewportHeight = 0;
+                let scrollHeight = 0;
                 
-                // Reload messages for current chat
-                const currentChatId = Alpine.store('app').currentChatId;
-                if (currentChatId) {
-                    await chatStore.loadMessages(currentChatId);
-                    await chatStore.loadChats(); // Update last message display
+                if (container) {
+                    // Save current scroll state
+                    scrollPosition = container.scrollTop;
+                    viewportHeight = container.clientHeight;
+                    scrollHeight = container.scrollHeight;
+                    
+                    // Find the message to be deleted
+                    const messages = chatStore.currentMessages;
+                    const messageIndex = messages.findIndex(m => m.id === messageId);
+                    
+                    // Get all message elements
+                    const messageElements = container.querySelectorAll('.message-wrapper');
+                    let deletedMessageHeight = 0;
+                    
+                    if (messageIndex >= 0 && messageElements[messageIndex]) {
+                        // Get the height of the message being deleted
+                        const messageRect = messageElements[messageIndex].getBoundingClientRect();
+                        deletedMessageHeight = messageRect.height;
+                        
+                        // Check if the deleted message is above the current viewport
+                        const messageTop = messageElements[messageIndex].offsetTop;
+                        const isAboveViewport = messageTop < scrollPosition;
+                        
+                        // Set flag to prevent auto-scroll in chatInterface
+                        if (window.chatInterfaceInstance) {
+                            window.chatInterfaceInstance.isDeleting = true;
+                        }
+                        
+                        // Delete from database
+                        await db.messages.delete(messageId);
+                        console.log('✅ Message deleted from database');
+                        
+                        // Reload messages for current chat
+                        const currentChatId = Alpine.store('app').currentChatId;
+                        if (currentChatId) {
+                            await chatStore.loadMessages(currentChatId);
+                            await chatStore.loadChats(); // Update last message display
+                            
+                            // Restore scroll position after DOM update
+                            if (isAboveViewport) {
+                                // If deleted message was above viewport, adjust scroll to maintain view
+                                setTimeout(() => {
+                                    container.scrollTop = Math.max(0, scrollPosition - deletedMessageHeight);
+                                    
+                                    // Reset the flag
+                                    if (window.chatInterfaceInstance) {
+                                        window.chatInterfaceInstance.isDeleting = false;
+                                    }
+                                }, 50);
+                            } else {
+                                // If deleted message was in or below viewport, maintain scroll position
+                                setTimeout(() => {
+                                    container.scrollTop = scrollPosition;
+                                    
+                                    // Reset the flag
+                                    if (window.chatInterfaceInstance) {
+                                        window.chatInterfaceInstance.isDeleting = false;
+                                    }
+                                }, 50);
+                            }
+                        }
+                    } else {
+                        // Message not found, just delete and reset flag
+                        await db.messages.delete(messageId);
+                        const currentChatId = Alpine.store('app').currentChatId;
+                        if (currentChatId) {
+                            await chatStore.loadMessages(currentChatId);
+                            await chatStore.loadChats();
+                        }
+                        if (window.chatInterfaceInstance) {
+                            window.chatInterfaceInstance.isDeleting = false;
+                        }
+                    }
+                } else {
+                    // No container found, proceed with simple deletion
+                    await db.messages.delete(messageId);
+                    const currentChatId = Alpine.store('app').currentChatId;
+                    if (currentChatId) {
+                        await chatStore.loadMessages(currentChatId);
+                        await chatStore.loadChats();
+                    }
                 }
                 
                 this.hide();
             } catch (error) {
                 console.error('❌ Failed to delete message:', error);
+                // Reset the flag on error
+                if (window.chatInterfaceInstance) {
+                    window.chatInterfaceInstance.isDeleting = false;
+                }
             }
         },
         
@@ -3168,8 +3250,12 @@ function chatInterface() {
     return {
         newMessage: '',
         hasInitialScroll: false,
+        isDeleting: false,
         
         init() {
+            // Expose this instance globally for access from other components
+            window.chatInterfaceInstance = this;
+            
             // Watch for messages changes to scroll to bottom on initial load
             let lastChatId = null;
             this.$watch('messages', (newMessages, oldMessages) => {
@@ -3179,6 +3265,11 @@ function chatInterface() {
                 if (currentChatId !== lastChatId) {
                     this.hasInitialScroll = false;
                     lastChatId = currentChatId;
+                }
+                
+                // Skip auto-scroll if we're deleting a message
+                if (this.isDeleting) {
+                    return;
                 }
                 
                 // Only auto-scroll to bottom on initial load (when messages go from empty to populated)
