@@ -1,4 +1,4 @@
-// Initialize Database
+// Initialize Database 
 const db = new Dexie('RuaPhoneDB');
 
 // Define all tables in version 7 to add enabled field to worldBooks
