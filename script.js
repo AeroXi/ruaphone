@@ -2879,6 +2879,16 @@ document.addEventListener('alpine:init', () => {
             const chatStore = Alpine.store('chat');
             
             try {
+                // 保存当前滚动位置
+                const messagesContainer = document.querySelector('#messagesContainer');
+                const scrollTop = messagesContainer ? messagesContainer.scrollTop : 0;
+                const scrollHeight = messagesContainer ? messagesContainer.scrollHeight : 0;
+                
+                // 找到被删除消息的DOM元素和位置
+                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                const messageOffsetTop = messageElement ? messageElement.offsetTop : 0;
+                const messageHeight = messageElement ? messageElement.offsetHeight : 0;
+                
                 // Delete from database
                 await db.messages.delete(messageId);
                 console.log('✅ Message deleted from database');
@@ -2888,6 +2898,18 @@ document.addEventListener('alpine:init', () => {
                 if (currentChatId) {
                     await chatStore.loadMessages(currentChatId);
                     await chatStore.loadChats(); // Update last message display
+                    
+                    // 恢复滚动位置
+                    await Alpine.nextTick();
+                    if (messagesContainer) {
+                        // 如果删除的消息在当前视口上方，需要调整滚动位置
+                        if (messageOffsetTop < scrollTop) {
+                            messagesContainer.scrollTop = scrollTop - messageHeight;
+                        } else {
+                            // 否则保持原有滚动位置
+                            messagesContainer.scrollTop = scrollTop;
+                        }
+                    }
                 }
                 
                 this.hide();
