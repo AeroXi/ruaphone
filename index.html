@@ -11,7 +11,7 @@
     <!-- External Dependencies -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/remixicon@4.6.0/fonts/remixicon.css" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=1.19.0">
+    <link rel="stylesheet" href="styles.css?v=1.20.0">
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script src="https://unpkg.com/axios@1.6.7/dist/axios.min.js"></script>
     <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
@@ -94,7 +94,7 @@
                     
                     <!-- Version info -->
                     <div style="position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #999; font-size: 10px; text-align: center;">
-                        RuaPhone v1.19.0
+                        RuaPhone v1.20.0
                     </div>
                 </div>
 
@@ -121,9 +121,13 @@
                                      x-data="{
                                          startX: 0,
                                          currentX: 0,
+                                         startY: 0,
+                                         currentY: 0,
                                          isDragging: false,
                                          isOpen: false,
-                                         threshold: 80,
+                                         scrollDirection: null,
+                                         threshold: 50,
+                                         directionThreshold: 10,
                                          
                                          get swipeStyle() {
                                              const translateX = this.isOpen ? -80 : Math.max(-80, Math.min(0, this.currentX - this.startX));
@@ -131,15 +135,43 @@
                                          },
                                          
                                          handleTouchStart(e) {
+                                             // Close any other open swipe items
+                                             document.querySelectorAll('.swipe-container').forEach(el => {
+                                                 if (el !== this.$el && el.__x) {
+                                                     el.__x.$data.isOpen = false;
+                                                 }
+                                             });
+                                             
                                              this.startX = e.touches[0].clientX;
                                              this.currentX = e.touches[0].clientX;
+                                             this.startY = e.touches[0].clientY;
+                                             this.currentY = e.touches[0].clientY;
                                              this.isDragging = true;
+                                             this.scrollDirection = null;
                                          },
                                          
                                          handleTouchMove(e) {
                                              if (!this.isDragging) return;
+                                             
                                              this.currentX = e.touches[0].clientX;
-                                             e.preventDefault(); // 防止页面滚动
+                                             this.currentY = e.touches[0].clientY;
+                                             
+                                             const deltaX = Math.abs(this.currentX - this.startX);
+                                             const deltaY = Math.abs(this.currentY - this.startY);
+                                             
+                                             // Determine scroll direction on first significant move
+                                             if (!this.scrollDirection && (deltaX > this.directionThreshold || deltaY > this.directionThreshold)) {
+                                                 this.scrollDirection = deltaX > deltaY ? 'horizontal' : 'vertical';
+                                             }
+                                             
+                                             // Only prevent default for horizontal swipes
+                                             if (this.scrollDirection === 'horizontal') {
+                                                 e.preventDefault();
+                                             } else if (this.scrollDirection === 'vertical') {
+                                                 // Reset dragging state for vertical scrolls
+                                                 this.isDragging = false;
+                                                 this.currentX = this.startX;
+                                             }
                                          },
                                          
                                          handleTouchEnd(e) {
@@ -147,23 +179,39 @@
                                              this.isDragging = false;
                                              const diff = this.startX - this.currentX;
                                              
+                                             // If swiped past threshold, keep delete button visible
                                              if (diff > this.threshold) {
                                                  this.isOpen = true;
                                              } else {
                                                  this.isOpen = false;
                                              }
+                                             
+                                             // Reset position
+                                             this.currentX = this.startX;
+                                             this.scrollDirection = null;
                                          },
                                          
                                          handleMouseDown(e) {
+                                             // Close any other open swipe items
+                                             document.querySelectorAll('.swipe-container').forEach(el => {
+                                                 if (el !== this.$el && el.__x) {
+                                                     el.__x.$data.isOpen = false;
+                                                 }
+                                             });
+                                             
                                              this.startX = e.clientX;
                                              this.currentX = e.clientX;
+                                             this.startY = e.clientY;
+                                             this.currentY = e.clientY;
                                              this.isDragging = true;
+                                             this.scrollDirection = null;
                                              e.preventDefault();
                                          },
                                          
                                          handleMouseMove(e) {
                                              if (!this.isDragging) return;
                                              this.currentX = e.clientX;
+                                             this.currentY = e.clientY;
                                          },
                                          
                                          handleMouseUp(e) {
@@ -171,24 +219,35 @@
                                              this.isDragging = false;
                                              const diff = this.startX - this.currentX;
                                              
+                                             // If swiped past threshold, keep delete button visible
                                              if (diff > this.threshold) {
                                                  this.isOpen = true;
                                              } else {
                                                  this.isOpen = false;
                                              }
+                                             
+                                             // Reset position
+                                             this.currentX = this.startX;
+                                             this.scrollDirection = null;
                                          },
                                          
                                          handleClick(e) {
+                                             // Close if open, otherwise navigate
                                              if (this.isOpen) {
                                                  e.stopPropagation();
                                                  this.isOpen = false;
                                              } else {
-                                                 openChat(chat.id);
+                                                 const diff = Math.abs(this.startX - e.clientX);
+                                                 if (diff < 5) {
+                                                     openChat(chat.id);
+                                                 }
                                              }
                                          },
                                          
                                          deleteChat() {
                                              $store.chat.deleteChat(chat.id);
+                                             // Close the swipe menu after delete action
+                                             this.isOpen = false;
                                          }
                                      }">
                                     <div class="swipe-content" 
@@ -901,7 +960,7 @@
                             box-shadow: 0 2px 8px rgba(0, 122, 255, 0.2);
                         ">
                             <div style="font-size: 14px; font-weight: 600; margin-bottom: 4px;">
-                                🚀 RuaPhone v1.19.0
+                                🚀 RuaPhone v1.20.0
                             </div>
                             <div style="font-size: 12px; opacity: 0.9;">
                                 可爱的小手机rua~
@@ -1934,7 +1993,7 @@
         </div>
     </div>
 
-    <script src="script.js?v=1.19.0"></script>
-    <script src="version-update.js?v=1.19.0"></script>
+    <script src="script.js?v=1.20.0"></script>
+    <script src="version-update.js?v=1.20.0"></script>
 </body>
 </html>
