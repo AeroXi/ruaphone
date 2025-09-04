@@ -2039,29 +2039,17 @@ document.addEventListener('alpine:init', () => {
             { id: 'speech-01-turbo', name: 'Speech 01 Turbo' }
         ],
         
-        // Available voice characters
-        voiceCharacters: [
-            { id: 'male-qn-qingse', name: '青涩青年男声' },
-            { id: 'male-qn-jingying', name: '精英青年男声' },
-            { id: 'male-qn-badao', name: '霸道青年男声' },
-            { id: 'male-qn-daxuesheng', name: '青年大学生男声' },
-            { id: 'female-shaonv', name: '少女音' },
-            { id: 'female-yujie', name: '御姐音' },
-            { id: 'female-chengshu', name: '成熟女声' },
-            { id: 'female-tianmei', name: '甜美女声' },
-            { id: 'presenter_male', name: '男性主持人' },
-            { id: 'presenter_female', name: '女性主持人' },
-            { id: 'audiobook_male_1', name: '有声书男声1' },
-            { id: 'audiobook_female_1', name: '有声书女声1' },
-            { id: 'friendly_male', name: '友好男声' },
-            { id: 'childvoice', name: '童声' }
-        ],
-        
         // Model list management
         availableModels: [],
         modelsLoading: false,
         modelsError: null,
         modelsLastFetch: null,
+        
+        // Voice list management
+        availableVoices: [],
+        voicesLoading: false,
+        voicesError: null,
+        voicesLastFetch: null,
         
         // Helper function for multi-key API support
         getRandomApiKey(keyString) {
@@ -2082,6 +2070,16 @@ document.addEventListener('alpine:init', () => {
             const voiceConfig = await db.voiceApiConfig.get('main');
             if (voiceConfig) {
                 this.voiceApiConfig = { ...this.voiceApiConfig, ...voiceConfig };
+            }
+            
+            // Auto-fetch voices if voice API is configured
+            if (this.voiceApiConfig.minimaxApiKey && this.voiceApiConfig.minimaxGroupId) {
+                setTimeout(() => {
+                    this.fetchAvailableVoices();
+                }, 500); // Small delay to let UI load
+            } else {
+                // Load default voices if not configured
+                this.availableVoices = this.getDefaultVoices();
             }
         },
         
@@ -2279,6 +2277,151 @@ document.addEventListener('alpine:init', () => {
         async refreshModels() {
             this.modelsLastFetch = null; // Clear cache
             return await this.fetchAvailableModels();
+        },
+        
+        // Fetch available voices from Minimax API
+        async fetchAvailableVoices() {
+            // Check if we need to fetch (cache for 5 minutes)
+            const now = Date.now();
+            const cacheTime = 5 * 60 * 1000; // 5 minutes
+            if (this.voicesLastFetch && (now - this.voicesLastFetch) < cacheTime && this.availableVoices.length > 0) {
+                console.log('Using cached voices');
+                return this.availableVoices;
+            }
+            
+            // Check if voice API is configured
+            if (!this.voiceApiConfig.minimaxApiKey || !this.voiceApiConfig.minimaxGroupId) {
+                console.log('Cannot fetch voices: missing Minimax API credentials');
+                this.voicesError = '请先配置 Minimax API 密钥和 Group ID';
+                // Return default voices as fallback
+                return this.getDefaultVoices();
+            }
+            
+            this.voicesLoading = true;
+            this.voicesError = null;
+            
+            try {
+                console.log('Fetching available voices from Minimax...');
+                
+                const response = await fetch('https://api.minimaxi.com/v1/get_voice', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${this.voiceApiConfig.minimaxApiKey}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'voice_type=all'
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`Failed to fetch voices: ${response.status} ${response.statusText}`, errorText);
+                    this.voicesError = `获取语音列表失败: ${response.status}`;
+                    return this.getDefaultVoices();
+                }
+                
+                const data = await response.json();
+                console.log('Voice list response:', data);
+                
+                // Process the voice list based on API response structure
+                if (data) {
+                    const voices = [];
+                    
+                    // Process system voices
+                    if (data.system_voice && Array.isArray(data.system_voice)) {
+                        data.system_voice.forEach(voice => {
+                            voices.push({
+                                id: voice.voice_id,
+                                name: voice.voice_name || voice.voice_id,
+                                type: 'system',
+                                description: voice.description || []
+                            });
+                        });
+                    }
+                    
+                    // Process voice cloning voices
+                    if (data.voice_cloning && Array.isArray(data.voice_cloning)) {
+                        data.voice_cloning.forEach(voice => {
+                            voices.push({
+                                id: voice.voice_id,
+                                name: `克隆音色 ${voice.voice_id}`,
+                                type: 'cloned',
+                                description: voice.description || [],
+                                created: voice.created_time
+                            });
+                        });
+                    }
+                    
+                    // Process voice generation voices
+                    if (data.voice_generation && Array.isArray(data.voice_generation)) {
+                        data.voice_generation.forEach(voice => {
+                            voices.push({
+                                id: voice.voice_id,
+                                name: `生成音色 ${voice.voice_id}`,
+                                type: 'generated',
+                                description: voice.description || [],
+                                created: voice.created_time
+                            });
+                        });
+                    }
+                    
+                    // Sort voices: cloned first, then generated, then system
+                    this.availableVoices = voices.sort((a, b) => {
+                        const typeOrder = { 'cloned': 0, 'generated': 1, 'system': 2 };
+                        const orderDiff = typeOrder[a.type] - typeOrder[b.type];
+                        if (orderDiff !== 0) return orderDiff;
+                        return a.name.localeCompare(b.name);
+                    });
+                    
+                    console.log(`Found ${this.availableVoices.length} voices (${data.voice_cloning?.length || 0} cloned, ${data.voice_generation?.length || 0} generated, ${data.system_voice?.length || 0} system)`);
+                    
+                    // If no voices found, use defaults
+                    if (this.availableVoices.length === 0) {
+                        console.warn('No voices returned from API, using defaults');
+                        this.availableVoices = this.getDefaultVoices();
+                    }
+                } else {
+                    // Fallback to default voices if API structure is unexpected
+                    console.warn('Unexpected voice API response structure, using defaults');
+                    this.availableVoices = this.getDefaultVoices();
+                }
+                
+                this.voicesLastFetch = now;
+                return this.availableVoices;
+                
+            } catch (error) {
+                console.error('Failed to fetch voices:', error);
+                this.voicesError = '获取语音列表失败: ' + error.message;
+                // Return default voices as fallback
+                return this.getDefaultVoices();
+            } finally {
+                this.voicesLoading = false;
+            }
+        },
+        
+        // Get default voices as fallback
+        getDefaultVoices() {
+            return [
+                { id: 'male-qn-qingse', name: '青涩青年男声', type: 'system' },
+                { id: 'male-qn-jingying', name: '精英青年男声', type: 'system' },
+                { id: 'male-qn-badao', name: '霸道青年男声', type: 'system' },
+                { id: 'male-qn-daxuesheng', name: '青年大学生男声', type: 'system' },
+                { id: 'female-shaonv', name: '少女音', type: 'system' },
+                { id: 'female-yujie', name: '御姐音', type: 'system' },
+                { id: 'female-chengshu', name: '成熟女声', type: 'system' },
+                { id: 'female-tianmei', name: '甜美女声', type: 'system' },
+                { id: 'presenter_male', name: '男性主持人', type: 'system' },
+                { id: 'presenter_female', name: '女性主持人', type: 'system' },
+                { id: 'audiobook_male_1', name: '有声书男声1', type: 'system' },
+                { id: 'audiobook_female_1', name: '有声书女声1', type: 'system' },
+                { id: 'friendly_male', name: '友好男声', type: 'system' },
+                { id: 'childvoice', name: '童声', type: 'system' }
+            ];
+        },
+        
+        // Refresh voices (force fetch)
+        async refreshVoices() {
+            this.voicesLastFetch = null; // Clear cache
+            return await this.fetchAvailableVoices();
         }
     });
 
@@ -3191,6 +3334,10 @@ function phoneApp() {
                 }
                 
                 await Alpine.store('settings').saveVoiceConfig();
+                
+                // Auto-fetch voices after saving config
+                Alpine.store('settings').refreshVoices();
+                
                 alert('语音API设置已保存');
             } catch (error) {
                 console.error('Failed to save voice API config:', error);
