@@ -2879,6 +2879,27 @@ document.addEventListener('alpine:init', () => {
             const chatStore = Alpine.store('chat');
             
             try {
+                // Get the messages container to preserve scroll position
+                const messagesContainer = document.querySelector('.chat-messages');
+                let scrollPosition = 0;
+                let scrollHeight = 0;
+                let messageElement = null;
+                
+                if (messagesContainer) {
+                    // Store current scroll position
+                    scrollPosition = messagesContainer.scrollTop;
+                    scrollHeight = messagesContainer.scrollHeight;
+                    
+                    // Find the message element by looking for its index
+                    const messageIndex = chatStore.currentMessages.findIndex(m => m.id === messageId);
+                    if (messageIndex !== -1) {
+                        const messageWrappers = messagesContainer.querySelectorAll('.message-wrapper');
+                        if (messageWrappers[messageIndex]) {
+                            messageElement = messageWrappers[messageIndex];
+                        }
+                    }
+                }
+                
                 // Delete from database
                 await db.messages.delete(messageId);
                 console.log('✅ Message deleted from database');
@@ -2888,6 +2909,33 @@ document.addEventListener('alpine:init', () => {
                 if (currentChatId) {
                     await chatStore.loadMessages(currentChatId);
                     await chatStore.loadChats(); // Update last message display
+                    
+                    // Restore scroll position after messages are reloaded
+                    if (messagesContainer && scrollPosition > 0) {
+                        // Use nextTick to ensure DOM is updated
+                        setTimeout(() => {
+                            const newScrollHeight = messagesContainer.scrollHeight;
+                            const heightDifference = scrollHeight - newScrollHeight;
+                            
+                            // Adjust scroll position based on where the deleted message was
+                            if (messageElement) {
+                                const messageRect = messageElement.getBoundingClientRect();
+                                const containerRect = messagesContainer.getBoundingClientRect();
+                                const messageRelativeTop = messageRect.top - containerRect.top;
+                                
+                                // If message was above viewport, maintain exact position
+                                if (messageRelativeTop < 0) {
+                                    messagesContainer.scrollTop = Math.max(0, scrollPosition - (messageElement.offsetHeight || heightDifference));
+                                } else {
+                                    // Message was in or below viewport, maintain visual position
+                                    messagesContainer.scrollTop = scrollPosition;
+                                }
+                            } else {
+                                // Fallback: just maintain approximate position
+                                messagesContainer.scrollTop = Math.max(0, scrollPosition - heightDifference);
+                            }
+                        }, 0);
+                    }
                 }
                 
                 this.hide();
