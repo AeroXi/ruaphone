@@ -714,7 +714,7 @@ class MinimaxTTS {
                 text: text,
                 stream: false,
                 voice_setting: {
-                    voice_id: config.voiceId || 'male-qn-qingse',
+                    voice_id: config.useCustomVoiceId ? config.customVoiceId : (config.voiceId || 'male-qn-qingse'),
                     speed: 1,
                     vol: 1,
                     pitch: 0
@@ -2026,7 +2026,9 @@ document.addEventListener('alpine:init', () => {
             minimaxApiKey: '',
             minimaxGroupId: '',
             minimaxModel: 'speech-2.5-hd-preview',
-            voiceId: 'male-qn-qingse'
+            voiceId: 'male-qn-qingse',
+            useCustomVoiceId: false,
+            customVoiceId: ''
         },
         
         // Available voice models
